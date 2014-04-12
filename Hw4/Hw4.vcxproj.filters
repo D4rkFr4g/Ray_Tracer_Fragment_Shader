@@ -1,0 +1,87 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="glsupport.cpp" />
+    <ClCompile Include="MySdlApplication.cpp" />
+    <ClCompile Include="GPoint.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="cvec.h" />
+    <ClInclude Include="geometrymaker.h" />
+    <ClInclude Include="glsupport.h" />
+    <ClInclude Include="matrix4.h" />
+    <ClInclude Include="MySdlApplication.h" />
+    <ClInclude Include="GPoint.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="TODO.txt" />
+    <None Include="Shaders\basic-gl2.vshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\cube-gl3.fshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\basic-gl3.vshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\cube-gl2.fshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\flower-gl2.fshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\flower-gl3.fshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\normal-gl2.fshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\normal-gl3.fshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\texture-gl2.fshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\texture-gl3.fshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\anisotropy-gl3.fshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\crater-gl3.fshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\crater-gl2.fshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\shiny-gl2.fshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\shiny-gl3.fshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\diffuse-gl2.fshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\diffuse-gl3.fshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\terrain-gl3.fshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\terrain-gl2.fshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\terrain-gl2.vshader">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\terrain-gl3.vshader">
+      <Filter>Shaders</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{2c058fff-8965-4f10-ad43-2e3f30f74aca}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
