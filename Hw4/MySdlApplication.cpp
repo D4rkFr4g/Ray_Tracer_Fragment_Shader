@@ -10,26 +10,23 @@
 */
 #define SDL_MAIN_HANDLED
 #include "MySdlApplication.h"
-#include "GPoint.h"
+//#include "GPoint.h"
 
 //   CONSTANTS
-/*
-static const bool G_GL2_COMPATIBLE = false;
-static const float G_FRUST_MIN_FOV = 60.0;  //A minimal of 60 degree field of view
-static const unsigned char* KB_STATE = NULL;
 
-static const int G_NUM_SHADERS = 2;
+static const bool G_GL2_COMPATIBLE = false;
+static const unsigned char* KB_STATE = NULL;
+//static const float G_FRUST_MIN_FOV = 60.0;  //A minimal of 60 degree field of view
+static const int G_NUM_SHADERS = 1;
+
 static const char * const G_SHADER_FILES[G_NUM_SHADERS][2] = 
 {
-	{"./Shaders/basic-gl3.vshader", "./Shaders/diffuse-gl3.fshader"},
-	{"./Shaders/basic-gl3.vshader", "./Shaders/solid-gl3.fshader"}
+	{"./Shaders/basic-gl3.vshader", "./Shaders/solid-gl3.fshader"},
 };
 static const char * const G_SHADER_FILES_GL2[G_NUM_SHADERS][2] = 
 {
-	{"./Shaders/basic-gl2.vshader", "./Shaders/diffuse-gl2.fshader"},
-	{"./Shaders/basic-gl2.vshader", "./Shaders/solid-gl2.fshader"}
+	{"./Shaders/basic-gl2.vshader", "./Shaders/solid-gl2.fshader"},
 };
-*/
 
 const GLdouble WHITE[3] = {1.0, 1.0, 1.0}; //RGB for white
 const GLdouble BLACK[3] = {0.0, 0.0, 0.0}; //RGB for black
@@ -54,36 +51,83 @@ const GLdouble SMALL_NUMBER = .0001; // used rather than check with zero to avoi
 
 const GLdouble SUPER_SAMPLE_NUMBER = 16; // how many random rays per pixel
 
-/*
-// Global variables
-int g_windowWidth = 640;
-int g_windowHeight = 480;
-unsigned char kbPrevState[SDL_NUM_SCANCODES] = {0};
+struct ShaderState 
+{
+	GlProgram program;
 
-static bool g_mouseClickDown = false;    // is the mouse button pressed
-static bool g_mouseLClickButton, g_mouseRClickButton, g_mouseMClickButton;
-static int g_mouseClickX, g_mouseClickY; // coordinates for mouse click event
-static int g_activeShader = 0;
+	// Handles to uniform variables
+	GLint h_uProjMatrix;
+	GLint h_uModelViewMatrix;
+	GLint h_uNormalMatrix;
+	/*
+	GLint h_uLight, h_uLight2;
+	GLint h_uColor;
+	GLint h_uTexUnit0;
+	GLint h_uTexUnit1;
+	GLint h_uTexUnit2;
+	GLint h_uSamples;
+	GLint h_uSampledx;
+	GLint h_uSampledy;
+	*/
 
-static float g_frustFovY = G_FRUST_MIN_FOV; // FOV in y direction
+	// Handles to vertex attributes
+	GLint h_aPosition;
+	GLint h_aNormal;
+	/*
+	GLint h_aTangent;
+	GLint h_aTexCoord0;
+	GLint h_aTexCoord1;
+	GLint h_aTexCoord2;
+	*/
 
-static shared_ptr<GlTexture> g_tex0, g_tex1, g_tex2, g_tex3;
+	/*-----------------------------------------------*/
+	ShaderState(const char* vsfn, const char* fsfn) 
+	{
+		/*	PURPOSE:		Constructor for ShaderState Object 
+			RECEIVES:	vsfn - Vertex Shader Filename
+							fsfn - Fragement Shader Filename
+			RETURNS:		ShaderState object
+			REMARKS:		
+		*/
 
-// Macro used to obtain relative offset of a field within a struct
-#define FIELD_OFFSET(StructType, field) &(((StructType *)0)->field)
+		readAndCompileShader(program, vsfn, fsfn);
 
-// --------- Scene
+		const GLuint h = program; // short hand
 
-static Cvec3 g_light1(2.0, 3.0, 14.0);
-static Cvec3 g_light2(-2000.0, -3000.0, -5000.0);
-// define light positions in world space
-static RigTForm g_skyRbt = RigTForm(Cvec3(0.0, 0.0, 0.0)); // Initialized here but set in initCamera()
-static RigTForm g_eyeRbt = g_skyRbt;
-static Cvec3f g_objectColors[1] = {Cvec3f(1, 0, 0)};
+		// Retrieve handles to uniform variables
+		h_uProjMatrix = safe_glGetUniformLocation(h, "uProjMatrix");
+		h_uModelViewMatrix = safe_glGetUniformLocation(h, "uModelViewMatrix");
+		//h_uNormalMatrix = safe_glGetUniformLocation(h, "uNormalMatrix");
 
-///////////////// END OF G L O B A L S ///////////////////////
+		/*
+		h_uLight = safe_glGetUniformLocation(h, "uLight");
+		h_uLight2 = safe_glGetUniformLocation(h, "uLight2");
+		h_uColor = safe_glGetUniformLocation(h, "uColor");
+		h_uTexUnit0 = safe_glGetUniformLocation(h, "uTexUnit0");
+		h_uTexUnit1 = safe_glGetUniformLocation(h, "uTexUnit1");
+		h_uTexUnit2 = safe_glGetUniformLocation(h, "uTexUnit2");
+		h_uSamples = safe_glGetUniformLocation(h, "uSamples");
+		h_uSampledx = safe_glGetUniformLocation(h, "uSampledx");
+		h_uSampledy = safe_glGetUniformLocation(h, "uSampledy");
+		*/
 
-*/
+		// Retrieve handles to vertex attributes
+		h_aPosition = safe_glGetAttribLocation(h, "aPosition");
+		//h_aNormal = safe_glGetAttribLocation(h, "aNormal");
+		/*
+		h_aTangent = safe_glGetAttribLocation(h, "aTangent");
+		h_aTexCoord0 = safe_glGetAttribLocation(h, "aTexCoord0");
+		h_aTexCoord1 = safe_glGetAttribLocation(h, "aTexCoord1");
+		h_aTexCoord2 = safe_glGetAttribLocation(h, "aTexCoord2");
+		*/
+
+		if (!G_GL2_COMPATIBLE)
+			glBindFragDataLocation(h, 0, "fragColor");
+		checkGlErrors();
+    }
+	/*-----------------------------------------------*/
+};
+/*-----------------------------------------------*/
 
 // PROTOTYPES
 class RayObject;
@@ -93,8 +137,83 @@ class RayObject;
 */
 
 /*-----------------------------------------------*/
+class Point
+/*
+PURPOSE: Used to encapsulate the properties and operations
+   for 3 dimension points/vectors used to describe our scene
+   
+REMARK: Many of the operations for Points will be used very often
+   during ray-tracing. Since they are short and we want them to be inlined
+   we define them in the class defintion itself using a standard one-line
+   format (not exactly like the coding guidelines)
+*/
+{
+   private:
+      GLdouble _x;
+      GLdouble _y;
+      GLdouble _z;
 
+   public:
+      Point()
+         {_x = 0; _y = 0; _z =0;}
+   
+      Point(GLdouble a, GLdouble b, GLdouble c)
+         {_x = a; _y = b; _z =c;}
+     
+      Point(const GLdouble pt[])
+         {_x = pt[0]; _y = pt[1]; _z = pt[2];}
+                
+      Point(const Point& p)
+         {_x = p._x; _y = p._y; _z = p._z;}
+         
+      
+      GLdouble x(){return _x;}
+      GLdouble y(){return _y;}
+      GLdouble z(){return _z;}
+                  
+      void set(GLdouble a, GLdouble b, GLdouble c)
+         {_x = a; _y = b; _z =c;}
+      
+      bool isZero(){ return (_x == 0 && _y ==0 && _z==0);}
+      GLdouble length(){return sqrt(_x*_x + _y*_y + _z*_z); }
+      void normalize(){ GLdouble l = length(); _x /=l; _y/= l; _z /= l;}
+      
+      friend Point operator*(GLdouble scalar, const Point &other); //scalar products
+      friend Point operator*(const Point &other, GLdouble scalar);         
 
+      Point& operator*=(GLdouble scalar)
+         {_x *= scalar; _y *= scalar; _z *= scalar; return *this;}         
+
+      Point& operator/=(GLdouble scalar)
+         {_x /= scalar; _y /= scalar; _z /= scalar; return *this;}         
+      
+      Point operator*(const Point& other) //cross product
+         {return Point(_y*other._z - other._y*_z, _z*other._x - _x*other._z, _x*other._y - _y*other._x); }
+
+      GLdouble operator&(const Point& other)//dot Product
+         {return _x * other._x + _y * other._y + _z * other._z; }
+
+      Point operator%(const Point& other)//Hadamard Product
+         {return Point(_x * other._x, _y * other._y, _z * other._z); }
+      
+         
+      Point operator+(const Point &other) const
+         {return Point(_x + other._x, _y + other._y, _z + other._z); }
+            
+      Point operator-(const Point &other) const
+         {return Point(_x - other._x, _y - other._y, _z - other._z); }
+          
+      Point& operator+=(const Point &other)
+         {_x += other._x; _y += other._y; _z += other._z; return *this;}
+            
+      Point& operator-=(const Point &other)
+         {_x -= other._x; _y -= other._y; _z -= other._z; return *this;}
+
+      Point& operator=(const Point &other)
+         {_x = other._x; _y = other._y; _z = other._z; return *this;}
+         
+     
+};
 /*-----------------------------------------------*/
 class Light
 /*
@@ -106,16 +225,15 @@ REMARK:
 */
 {
    private:
-      GPoint _color;
-      GPoint _position;
+      Point _color;
+      Point _position;
 
    public:
      
-      Light(const GPoint& c, const GPoint& p){ _color = c; _position = p;}
-      GPoint color(){return _color;}
-      GPoint position(){return _position;}  
+      Light(const Point& c, const Point& p){ _color = c; _position = p;}
+      Point color(){return _color;}
+      Point position(){return _position;}  
 };
-
 /*-----------------------------------------------*/
 class Line
 /*
@@ -129,32 +247,31 @@ REMARK:
 */
 {
    private:
-      GPoint _startPt;
-      GPoint _endPt;
+      Point _startPt;
+      Point _endPt;
 
    public:
       Line(){_startPt.set(0.0, 0.0, 0.0); _endPt.set(0.0, 0.0, 0.0);}
-      Line(const GPoint& p1, const GPoint& p2) {_startPt = p1; _endPt = p2;}
+      Line(const Point& p1, const Point& p2) {_startPt = p1; _endPt = p2;}
       
-      void set(const GPoint& p1, const GPoint& p2){_startPt = p1; _endPt = p2;}
+      void set(const Point& p1, const Point& p2){_startPt = p1; _endPt = p2;}
 
-      GPoint startPoint() const {return _startPt;}
-      GPoint endPoint() const {return _endPt;}
+      Point startPoint() const {return _startPt;}
+      Point endPoint() const {return _endPt;}
 
-      GPoint direction() const
+      Point direction() const
       {
-         GPoint p =  _endPt - _startPt;
+         Point p =  _endPt - _startPt;
          p.normalize();
          return p;
       }
       
       GLdouble length() const
       {
-         GPoint p = _endPt - _startPt;
+         Point p = _endPt - _startPt;
          return p.length();
       }
 };
-
 /*-----------------------------------------------*/
 class Material
 /*
@@ -167,10 +284,10 @@ REMARK:
 */
 {
    private:
-      GPoint _ambient;
-      GPoint _diffuse;
-      GPoint _specular;
-      GPoint _transparency;
+      Point _ambient;
+      Point _diffuse;
+      Point _specular;
+      Point _transparency;
       GLdouble _refraction;
             
       
@@ -178,21 +295,20 @@ REMARK:
       Material()
          { _ambient.set(0.0, 0.0, 0.0); _diffuse =_ambient; _specular = _ambient; _transparency = _ambient;
 _refraction = 1;}
-      Material(const GPoint& a, const GPoint& d, const GPoint& s, const GPoint& t, GLdouble r)
+      Material(const Point& a, const Point& d, const Point& s, const Point& t, GLdouble r)
          {_ambient = a; _diffuse = d; _specular = s; _transparency = t; _refraction = r;}
       Material(const Material& m)
          {_ambient = m._ambient; _diffuse = m._diffuse; _specular = m._specular; 
           _transparency = m._transparency; _refraction = m._refraction;}
 
 
-      GPoint ambient(){ return _ambient;}
-      GPoint diffuse(){ return _diffuse;}
-      GPoint specular(){ return _specular;}
-      GPoint transparency(){ return _transparency;}
+      Point ambient(){ return _ambient;}
+      Point diffuse(){ return _diffuse;}
+      Point specular(){ return _specular;}
+      Point transparency(){ return _transparency;}
       GLdouble refraction(){ return _refraction;}
       
 };
-
 /*-----------------------------------------------*/
 class Intersection
 /*
@@ -207,8 +323,8 @@ REMARK:
 {
    private:
       bool _intersects;
-      GPoint _point;
-      GPoint _normal;
+      Point _point;
+      Point _normal;
 
       Material _material;
       Line _reflectedRay;
@@ -216,7 +332,7 @@ REMARK:
             
    public:
       Intersection(){}
-      Intersection(bool intersects, const GPoint& p, const GPoint& n, const Material& m, const Line& 
+      Intersection(bool intersects, const Point& p, const Point& n, const Material& m, const Line& 
 r, const Line& t)
          {_intersects = intersects; _point = p; _normal = n; _material = m; _reflectedRay = r; _transmittedRay =
 t;}
@@ -224,8 +340,8 @@ t;}
          
       bool intersects(){return _intersects;}
 
-      GPoint point(){return _point;}
-      GPoint normal(){return _normal;}
+      Point point(){return _point;}
+      Point normal(){return _normal;}
       
       Material material(){return _material;}
       
@@ -235,7 +351,7 @@ t;}
       void setIntersect(bool i){_intersects = i;}
       void setMaterial(const Material& m){_material = m;}
       
-      void setValues(bool intersects, const GPoint& p, const GPoint& n, const Material& m, const
+      void setValues(bool intersects, const Point& p, const Point& n, const Material& m, const
 Line& r, const Line& t)
          {_intersects = intersects; _point = p; _normal = n; _material = m; _reflectedRay = r; _transmittedRay =
 t;}
@@ -245,9 +361,6 @@ t;}
            _material = in._material; _reflectedRay = in._reflectedRay; _transmittedRay = in._transmittedRay;}
 
 };
-
-
-
 /*-----------------------------------------------*/
 class RayObject
 /*
@@ -258,18 +371,15 @@ REMARK:
 */
 {
    protected:
-      GPoint _position;
+      Point _position;
       Material _material;
    public:
-      RayObject(const GPoint& p, const Material& m )
+      RayObject(const Point& p, const Material& m )
          {_position = p; _material = m;}
-      virtual void intersection(const Line& l, const GPoint& positionOffset, Intersection& inter) = 0; 
+      virtual void intersection(const Line& l, const Point& positionOffset, Intersection& inter) = 0; 
          // by overriding intersection in different ways control how rays hit objects in our g_scene
 
 };
-
-
-
 /*-----------------------------------------------*/
 class Triangle : public RayObject
 /*
@@ -281,13 +391,13 @@ REMARK: Triangle's and Shape's are used according to a Composite design pattern 
 */
 {
    private:
-      GPoint _vertex0;
-      GPoint _vertex1;
-      GPoint _vertex2;
+      Point _vertex0;
+      Point _vertex1;
+      Point _vertex2;
       
-      GPoint _u;
-      GPoint _v;
-      GPoint _n;
+      Point _u;
+      Point _v;
+      Point _n;
             
       GLdouble _uv;
       GLdouble _uu;
@@ -297,8 +407,8 @@ REMARK: Triangle's and Shape's are used according to a Composite design pattern 
       bool _degenerate;
       
    public:
-      Triangle(const GPoint& p, const Material& m, const GPoint& p1, const GPoint& p2, const
-GPoint& p3) : RayObject(p,m)
+      Triangle(const Point& p, const Material& m, const Point& p1, const Point& p2, const
+Point& p3) : RayObject(p,m)
       {
          _vertex0 = p1;
          _vertex1 = p2; 
@@ -324,10 +434,9 @@ GPoint& p3) : RayObject(p,m)
          
       }
       
-      void intersection(const Line& l, const GPoint& positionOffset, Intersection& inter);
+      void intersection(const Line& l, const Point& positionOffset, Intersection& inter);
         
 };
-
 /*-----------------------------------------------*/
 class Shape : public RayObject
 /*
@@ -347,9 +456,9 @@ REMARK:  Triangle's and Shape's are used according to a Composite design pattern
       vector<RayObject *> _subObjects;
 
    public:
-      Shape() : RayObject(GPoint(0,0,0), Material())
+      Shape() : RayObject(Point(0,0,0), Material())
          {_radius = 0; _amSphere = false;}
-      Shape(GPoint p, Material m, GLdouble radius, bool a, bool c = false) : RayObject(p,m)
+      Shape(Point p, Material m, GLdouble radius, bool a, bool c = false) : RayObject(p,m)
          {_radius = radius; _amSphere = a; _canIntersectOnlyOneSubObject = c; _subObjects.clear();}
  
       ~Shape();
@@ -359,11 +468,10 @@ REMARK:  Triangle's and Shape's are used according to a Composite design pattern
       void addRayObject(RayObject *objects)
          {_subObjects.push_back(objects);}
       
-      void intersection(const Line& l, const GPoint& positionOffset, Intersection& inter);
+      void intersection(const Line& l, const Point& positionOffset, Intersection& inter);
 
         
 };
-
 /*-----------------------------------------------*/
 class Quad : public Shape
 /*
@@ -376,10 +484,9 @@ REMARK:
 */
 {
    public:
-      Quad(GPoint p, Material m, GPoint p1, GPoint p2, GPoint p3, GPoint p4);
+      Quad(Point p, Material m, Point p1, Point p2, Point p3, Point p4);
       
 };
-
 /*-----------------------------------------------*/
 class Tetrahedron :  public Shape
 /*
@@ -391,9 +498,8 @@ REMARK:
 
 {
    public:
-      Tetrahedron(GPoint p, GLdouble edgeSize);
+      Tetrahedron(Point p, GLdouble edgeSize);
 };
-
 /*-----------------------------------------------*/
 class Sphere :  public Shape
 /*
@@ -405,10 +511,8 @@ REMARK:
 
 {
    public:
-      Sphere(GPoint p, GLdouble radius);
+      Sphere(Point p, GLdouble radius);
 };
-
-
 /*-----------------------------------------------*/
 class Cube :  public Shape
 /*
@@ -419,9 +523,8 @@ REMARK:
 */
 {
    public:
-      Cube(GPoint p, GLdouble edgeSize);
+      Cube(Point p, GLdouble edgeSize);
 };
-
 /*-----------------------------------------------*/
 class CheckerBoard :  public Shape
 /*
@@ -435,28 +538,24 @@ REMARK:
       Quad _boundingSquare; /* this Quad is used for a quick test to see if a
          ray intersects our chessboard */
    public:
-      CheckerBoard(GPoint p);
-      void intersection(const Line& l, const GPoint& positionOffset, Intersection& inter);
+      CheckerBoard(Point p);
+      void intersection(const Line& l, const Point& positionOffset, Intersection& inter);
       
 };
 
-
-
-//   GLOBALS
-
+//   GLOBAL VARIABLES
 GLsizei g_windowWidth = 500, g_windowHeight = 500; // used for size of window
-GLsizei g_initX = 50, g_initY = 50; // used for initial position of window
+GLsizei g_initX = 100, g_initY = 100; // used for initial position of window
 
-GPoint g_lightPosition(0.0, 0.0, 0.0); /* although the ray tracer actually supports
+Point g_lightPosition(0.0, 0.0, 0.0); /* although the ray tracer actually supports
    giving it a vector of lights, this program only makes use of one
    light which is placed at g_lightPosition The value is later changed from this
    default value to a value on the chess board.*/
-GPoint g_lightColor(WHITE); // color of the light
+Point g_lightColor(WHITE); // color of the light
 
-GPoint g_whiteColor(WHITE); // some abbreviations for various colors
-GPoint g_blackColor(BLACK);
-GPoint g_redColor(RED);
-
+Point g_whiteColor(WHITE); // some abbreviations for various colors
+Point g_blackColor(BLACK);
+Point g_redColor(RED);
 
 Material g_whiteSquare(.1*g_whiteColor, .5*g_whiteColor, g_whiteColor, g_blackColor, 1); 
    // some materials used by objects in  the g_scene
@@ -468,6 +567,37 @@ Material g_cubeMaterial(.1*g_redColor, .4*g_redColor, g_redColor, g_blackColor, 
 
 Shape g_scene(BOARD_POSITION, Material(), sqrt((double)3)*BOARD_HALF_SIZE, false); // global shape for whole g_scene
 
+
+// Global variables
+static vector<shared_ptr<ShaderState> > g_shaderStates;
+// our global shader states
+unsigned char kbPrevState[SDL_NUM_SCANCODES] = {0};
+/*
+static bool g_mouseClickDown = false;    // is the mouse button pressed
+static bool g_mouseLClickButton, g_mouseRClickButton, g_mouseMClickButton;
+static int g_mouseClickX, g_mouseClickY; // coordinates for mouse click event
+*/
+static int g_activeShader = 0;
+/*
+static float g_frustFovY = G_FRUST_MIN_FOV; // FOV in y direction
+
+static shared_ptr<GlTexture> g_tex0, g_tex1, g_tex2, g_tex3;
+
+// Macro used to obtain relative offset of a field within a struct
+#define FIELD_OFFSET(StructType, field) &(((StructType *)0)->field)
+
+// --------- Scene
+
+static Cvec3 g_light1(2.0, 3.0, 14.0);
+static Cvec3 g_light2(-2000.0, -3000.0, -5000.0);
+// define light positions in world space
+static RigTForm g_skyRbt = RigTForm(Cvec3(0.0, 0.0, 0.0)); // Initialized here but set in initCamera()
+static RigTForm g_eyeRbt = g_skyRbt;
+static Cvec3f g_objectColors[1] = {Cvec3f(1, 0, 0)};
+
+///////////////// END OF G L O B A L S ///////////////////////
+*/
+
 /*
    IMPLEMENTATIONS
 */
@@ -475,10 +605,10 @@ Shape g_scene(BOARD_POSITION, Material(), sqrt((double)3)*BOARD_HALF_SIZE, false
 //Triangle Class Implementations
 
 /*-----------------------------------------------*/
-void Triangle::intersection(const Line& ray, const GPoint& positionOffset, Intersection& inter)
+void Triangle::intersection(const Line& ray, const Point& positionOffset, Intersection& inter)
 /*
 PURPOSE: used to fill in an Intersection object with information about how the supplied ray
-   intersects with the current Triangle based on the given positionOffset GPoint vector.
+   intersects with the current Triangle based on the given positionOffset Point vector.
 RECEIVES:
    ray -- ray to intersect with this Triangle
    positionOffset -- where in the overall g_scene this Triangle lives
@@ -504,14 +634,14 @@ REMARKS:
    } 
    
    //get coordinates of triangle given our position
-   GPoint position = _position + positionOffset;
-   GPoint v0 = position + _vertex0;
-   GPoint v1 = position + _vertex1;
-   GPoint v2 = position + _vertex2;
+   Point position = _position + positionOffset;
+   Point v0 = position + _vertex0;
+   Point v1 = position + _vertex1;
+   Point v2 = position + _vertex2;
    
-   GPoint p0 = ray.startPoint();
-   GPoint p1 = ray.endPoint();
-   GPoint diffP = p1 - p0;
+   Point p0 = ray.startPoint();
+   Point p1 = ray.endPoint();
+   Point diffP = p1 - p0;
    GLdouble ndiffP = _n&diffP;
    
    //handle another degenerate case by saying we don't intersect
@@ -529,9 +659,9 @@ REMARKS:
       return;
    }
       
-   GPoint p = p0 + m*diffP; //intersection point with plane
+   Point p = p0 + m*diffP; //intersection point with plane
    
-   GPoint w = p - v0;
+   Point w = p - v0;
    
    //Now check if in triangle      
    GLdouble wu = w & _u;
@@ -544,15 +674,15 @@ REMARKS:
    {
 
       diffP.normalize(); // now u is as in the book
-      GPoint u=diffP;
+      Point u=diffP;
       
-      GPoint r =  u - (2*(u & _n))*_n; 
+      Point r =  u - (2*(u & _n))*_n; 
       Line reflected(p, p + r);
       
       //Transmitted vector calculated using thin lens equations from book
       GLdouble refractionRatio = _material.refraction();
 
-      GPoint t(0.0, 0.0, 0.0);
+      Point t(0.0, 0.0, 0.0);
       
       GLdouble cosThetai = u & _n;
       GLdouble modulus = 1 - refractionRatio*refractionRatio*( 1- cosThetai*cosThetai);
@@ -592,7 +722,7 @@ REMARKS:
 }
 
 /*-----------------------------------------------*/
-void Shape::intersection(const Line& ray, const GPoint& positionOffset, Intersection& inter)
+void Shape::intersection(const Line& ray, const Point& positionOffset, Intersection& inter)
 /*
 PURPOSE: used to fill in an Intersection object with information about how the supplied ray
    intersects with the current Shape based on the given positionOffset Point vector.
@@ -605,10 +735,10 @@ RETURNS:
 REMARKS: note this Shape could be a composite object so we recurse through its _subObjects vector
 */
 {
-   GPoint u = ray.direction();
-   GPoint p0 = ray.startPoint();
-   GPoint position = _position + positionOffset;
-   GPoint deltaP = position - p0;
+   Point u = ray.direction();
+   Point p0 = ray.startPoint();
+   Point position = _position + positionOffset;
+   Point deltaP = position - p0;
 
 
    /* check for sphere intersection if radius is > 0.
@@ -630,8 +760,8 @@ REMARKS: note this Shape could be a composite object so we recurse through its _
 
       //calculate point of intersection
 
-      GPoint p = p0 + s*u;
-      GPoint directionP0 = p - position ;
+      Point p = p0 + s*u;
+      Point directionP0 = p - position ;
    
       if(_amSphere)
       {
@@ -642,14 +772,14 @@ REMARKS: note this Shape could be a composite object so we recurse through its _
          }
          
          //reflected vector calculated using equations from book
-         GPoint n(directionP0);
+         Point n(directionP0);
          n.normalize();
          
-         GPoint r =  u - (2*(u & n))*n; 
+         Point r =  u - (2*(u & n))*n; 
          Line reflected(p, p + r);
          
          //Transmitted vector calculated using thin lens equations from book
-         GPoint t(0.0, 0.0, 0.0);
+         Point t(0.0, 0.0, 0.0);
          GLdouble refractionRatio = _material.refraction();
          GLdouble cosThetai = u & n;
          GLdouble modulus = 1 - refractionRatio*refractionRatio*( 1- cosThetai*cosThetai);
@@ -679,7 +809,7 @@ REMARKS: note this Shape could be a composite object so we recurse through its _
                   
          if(interTmp.intersects())
          {
-            GPoint directionCur = interTmp.point() - p0;
+            Point directionCur = interTmp.point() - p0;
             distanceTmp = directionCur.length();
             if(distanceTmp < minDistance|| minDistance < 0.0)
             {
@@ -696,7 +826,7 @@ REMARKS: note this Shape could be a composite object so we recurse through its _
 //Quad Class Implementations
 
 /*-----------------------------------------------*/
-Quad::Quad(GPoint p, Material m, GPoint p1, GPoint p2, GPoint p3, GPoint p4) : Shape(p, m, 0, false, true)
+Quad::Quad(Point p, Material m, Point p1, Point p2, Point p3, Point p4) : Shape(p, m, 0, false, true)
 /*
 PURPOSE: constructs a Quad object (for quadralateral) at the given offset position made of
    the given material and with the supplied points
@@ -708,7 +838,7 @@ RETURNS:
 REMARKS: can only intersect one of two sub-triangles unless ray is same plane as Quad 
 */
 {
-   GPoint zero(0.0, 0.0, 0.0);
+   Point zero(0.0, 0.0, 0.0);
    
    addRayObject(new Triangle(zero, m, p1, p2, p3));
    addRayObject(new Triangle(zero, m, p1, p3, p4));
@@ -718,7 +848,7 @@ REMARKS: can only intersect one of two sub-triangles unless ray is same plane as
 //Sphere Class Implementations
 
 /*-----------------------------------------------*/
-Sphere::Sphere(GPoint p, GLdouble r) : Shape(p, g_sphereMaterial, r, true)
+Sphere::Sphere(Point p, GLdouble r) : Shape(p, g_sphereMaterial, r, true)
 /*
 PURPOSE: constructs a Sphere object at the given offset position and radius in our Scene
 RECEIVES:
@@ -737,7 +867,7 @@ REMARKS:  g_sphereMaterial is a global in this file.
 //Tetrahedron Class Implementations
 
 /*-----------------------------------------------*/
-Tetrahedron::Tetrahedron(GPoint p, GLdouble edgeSize) : Shape(p, g_tetrahedronMaterial, sqrt((double)3)*edgeSize/2,
+Tetrahedron::Tetrahedron(Point p, GLdouble edgeSize) : Shape(p, g_tetrahedronMaterial, sqrt((double)3)*edgeSize/2,
 false)
 /*
 PURPOSE: constructs a Tetrahedron at the given offset position and edgeSize in our Scene
@@ -750,36 +880,36 @@ REMARKS:  note g_tetrahedronMaterial is a global in this file.
    one obtained by slicing the cube from a top corner through the diagonal of the bottom face
 */
 {
-   GPoint zero(0.0, 0.0, 0.0);
+   Point zero(0.0, 0.0, 0.0);
    GLdouble halfEdge = edgeSize/2;
 
    //bottom
-   addRayObject(new Triangle(zero, g_tetrahedronMaterial, GPoint(-halfEdge, -halfEdge, -halfEdge), 
-                     GPoint(halfEdge, -halfEdge, -halfEdge), 
-                     GPoint(-halfEdge, -halfEdge, halfEdge)));
+   addRayObject(new Triangle(zero, g_tetrahedronMaterial, Point(-halfEdge, -halfEdge, -halfEdge), 
+                     Point(halfEdge, -halfEdge, -halfEdge), 
+                     Point(-halfEdge, -halfEdge, halfEdge)));
     //back
-    addRayObject(new Triangle(zero, g_tetrahedronMaterial, GPoint(-halfEdge, -halfEdge, -halfEdge), 
-                     GPoint(-halfEdge, -halfEdge, halfEdge), 
-                     GPoint(-halfEdge, halfEdge, -halfEdge)));
+    addRayObject(new Triangle(zero, g_tetrahedronMaterial, Point(-halfEdge, -halfEdge, -halfEdge), 
+                     Point(-halfEdge, -halfEdge, halfEdge), 
+                     Point(-halfEdge, halfEdge, -halfEdge)));
 
    //left
-   addRayObject(new Triangle(zero, g_tetrahedronMaterial, GPoint(-halfEdge, -halfEdge, -halfEdge), 
-                     GPoint(-halfEdge, halfEdge, -halfEdge), 
-                     GPoint(-halfEdge, -halfEdge, halfEdge)));
+   addRayObject(new Triangle(zero, g_tetrahedronMaterial, Point(-halfEdge, -halfEdge, -halfEdge), 
+                     Point(-halfEdge, halfEdge, -halfEdge), 
+                     Point(-halfEdge, -halfEdge, halfEdge)));
 
 
    //front
    addRayObject(new Triangle(zero, g_tetrahedronMaterial,
-                     GPoint(-halfEdge, -halfEdge, halfEdge),
-                     GPoint(halfEdge, -halfEdge, -halfEdge),
-                     GPoint(-halfEdge, halfEdge, -halfEdge)));
+                     Point(-halfEdge, -halfEdge, halfEdge),
+                     Point(halfEdge, -halfEdge, -halfEdge),
+                     Point(-halfEdge, halfEdge, -halfEdge)));
  
 }
 
 //Cube Class Implementations
 
 /*-----------------------------------------------*/
-Cube::Cube(GPoint p, GLdouble edgeSize) : Shape(p, g_cubeMaterial, sqrt((double)3)*edgeSize/2, false)
+Cube::Cube(Point p, GLdouble edgeSize) : Shape(p, g_cubeMaterial, sqrt((double)3)*edgeSize/2, false)
 /*
 PURPOSE: constructs a Cube at the given offset position and edgeSize in our Scene
 RECEIVES:
@@ -791,52 +921,52 @@ REMARKS:  note g_cubeMaterial is a global in this file
 {
    GLdouble halfEdge = edgeSize/2;
 
-   GPoint zero(0.0, 0.0, 0.0);
+   Point zero(0.0, 0.0, 0.0);
    //top
-   addRayObject(new Quad(zero, g_cubeMaterial, GPoint(-halfEdge, halfEdge, -halfEdge), 
-                     GPoint(halfEdge, halfEdge, -halfEdge), 
-                     GPoint(halfEdge, halfEdge, halfEdge), 
-                     GPoint(-halfEdge, halfEdge, halfEdge)));
+   addRayObject(new Quad(zero, g_cubeMaterial, Point(-halfEdge, halfEdge, -halfEdge), 
+                     Point(halfEdge, halfEdge, -halfEdge), 
+                     Point(halfEdge, halfEdge, halfEdge), 
+                     Point(-halfEdge, halfEdge, halfEdge)));
 
    //bottom
-   addRayObject(new Quad(zero, g_cubeMaterial, GPoint(-halfEdge, -halfEdge, -halfEdge), 
-                     GPoint(halfEdge, -halfEdge, -halfEdge), 
-                     GPoint(halfEdge, -halfEdge, halfEdge), 
-                     GPoint(-halfEdge, -halfEdge, halfEdge)));
+   addRayObject(new Quad(zero, g_cubeMaterial, Point(-halfEdge, -halfEdge, -halfEdge), 
+                     Point(halfEdge, -halfEdge, -halfEdge), 
+                     Point(halfEdge, -halfEdge, halfEdge), 
+                     Point(-halfEdge, -halfEdge, halfEdge)));
 
    //left
-   addRayObject(new Quad(zero, g_cubeMaterial, GPoint(-halfEdge, -halfEdge, -halfEdge), 
-                     GPoint(-halfEdge, halfEdge, -halfEdge), 
-                     GPoint(-halfEdge, halfEdge, halfEdge), 
-                     GPoint(-halfEdge, -halfEdge, halfEdge)));
+   addRayObject(new Quad(zero, g_cubeMaterial, Point(-halfEdge, -halfEdge, -halfEdge), 
+                     Point(-halfEdge, halfEdge, -halfEdge), 
+                     Point(-halfEdge, halfEdge, halfEdge), 
+                     Point(-halfEdge, -halfEdge, halfEdge)));
    //right
-   addRayObject(new Quad(zero, g_cubeMaterial, GPoint(halfEdge, -halfEdge, -halfEdge), 
-                     GPoint(halfEdge, halfEdge, -halfEdge), 
-                     GPoint(halfEdge, halfEdge, halfEdge), 
-                     GPoint(halfEdge, -halfEdge, halfEdge)));
+   addRayObject(new Quad(zero, g_cubeMaterial, Point(halfEdge, -halfEdge, -halfEdge), 
+                     Point(halfEdge, halfEdge, -halfEdge), 
+                     Point(halfEdge, halfEdge, halfEdge), 
+                     Point(halfEdge, -halfEdge, halfEdge)));
     //back
-    addRayObject(new Quad(zero, g_cubeMaterial, GPoint(-halfEdge, -halfEdge, -halfEdge), 
-                     GPoint(halfEdge, -halfEdge, -halfEdge), 
-                     GPoint(halfEdge, halfEdge, -halfEdge), 
-                     GPoint(-halfEdge, halfEdge, -halfEdge)));
+    addRayObject(new Quad(zero, g_cubeMaterial, Point(-halfEdge, -halfEdge, -halfEdge), 
+                     Point(halfEdge, -halfEdge, -halfEdge), 
+                     Point(halfEdge, halfEdge, -halfEdge), 
+                     Point(-halfEdge, halfEdge, -halfEdge)));
                      
    //front
-    addRayObject(new Quad(zero, g_cubeMaterial, GPoint(-halfEdge, -halfEdge, halfEdge), 
-                     GPoint(halfEdge, -halfEdge, halfEdge), 
-                     GPoint(halfEdge, halfEdge, halfEdge), 
-                     GPoint(-halfEdge, halfEdge, halfEdge)));
+    addRayObject(new Quad(zero, g_cubeMaterial, Point(-halfEdge, -halfEdge, halfEdge), 
+                     Point(halfEdge, -halfEdge, halfEdge), 
+                     Point(halfEdge, halfEdge, halfEdge), 
+                     Point(-halfEdge, halfEdge, halfEdge)));
    
 }
 
 //CheckerBoard Class Implementations
 
 /*-----------------------------------------------*/
-CheckerBoard::CheckerBoard(GPoint p) : Shape(),
+CheckerBoard::CheckerBoard(Point p) : Shape(),
 
-   _boundingSquare(p, Material(),  GPoint(- BOARD_HALF_SIZE, 0, - BOARD_HALF_SIZE), 
-                     GPoint( BOARD_HALF_SIZE, 0, - BOARD_HALF_SIZE), 
-                     GPoint( BOARD_HALF_SIZE, 0, BOARD_HALF_SIZE), 
-                     GPoint(- BOARD_HALF_SIZE, 0, BOARD_HALF_SIZE)) /*initialize
+   _boundingSquare(p, Material(),  Point(- BOARD_HALF_SIZE, 0, - BOARD_HALF_SIZE), 
+                     Point( BOARD_HALF_SIZE, 0, - BOARD_HALF_SIZE), 
+                     Point( BOARD_HALF_SIZE, 0, BOARD_HALF_SIZE), 
+                     Point(- BOARD_HALF_SIZE, 0, BOARD_HALF_SIZE)) /*initialize
                         bounding square to be used for quick tests if ray intersects
                         chess board */
 /*
@@ -852,7 +982,7 @@ REMARKS: This constructor makes use of some constant in this file concerning the
 }
 
 /*-----------------------------------------------*/
-void CheckerBoard::intersection(const Line& ray, const GPoint& positionOffset, Intersection& inter) 
+void CheckerBoard::intersection(const Line& ray, const Point& positionOffset, Intersection& inter) 
 /*
 PURPOSE: used to calculate how a ray intersects with a Chessboard object
 RECEIVES:
@@ -869,7 +999,7 @@ REMARKS:
    
    if(inter.intersects())
    {
-      GPoint p = inter.point() - positionOffset + GPoint(BOARD_HALF_SIZE, 0, BOARD_HALF_SIZE);
+      Point p = inter.point() - positionOffset + Point(BOARD_HALF_SIZE, 0, BOARD_HALF_SIZE);
       int squareSum = int(p.x()/SQUARE_EDGE_SIZE) + int(p.z()/SQUARE_EDGE_SIZE);
       
       if((squareSum & 1) == 0) 
@@ -888,7 +1018,7 @@ REMARKS:
 //CLASSLESS FUNCTIONS
 
 /*-----------------------------------------------*/
-GPoint operator*(GLdouble scalar, const GPoint& p)
+Point operator*(GLdouble scalar, const Point& p)
 /*
 PURPOSE: multiplies the supplied point vector by the scalar amount
 RECEIVES: 
@@ -900,15 +1030,14 @@ RETURNS:
 REMARKS:    
 */
 {
-   return GPoint(scalar*p._x, scalar*p._y, scalar*p._z);
+   return Point(scalar*p._x, scalar*p._y, scalar*p._z);
 }
-
 /*-----------------------------------------------*/
-GPoint operator*(const GPoint& p, GLdouble scalar)
+Point operator*(const Point& p, GLdouble scalar)
 /*
 PURPOSE: multiplies the supplied point vector by the scalar amount
 RECEIVES: 
-   p - GPoint vector (x,y,z)
+   p - Point vector (x,y,z)
    scalar -- the scalar `a' to multiply by
 RETURNS: 
    the point vector
@@ -916,11 +1045,10 @@ RETURNS:
 REMARKS:    
 */
 {
-   return GPoint(scalar*p._x, scalar*p._y, scalar*p._z);
+   return Point(scalar*p._x, scalar*p._y, scalar*p._z);
 }
-
 /*-----------------------------------------------*/
-GPoint randomUnit()
+Point randomUnit()
 /*
 PURPOSE: generate a random vector of length 1
 RECEIVES: Nothing
@@ -930,11 +1058,11 @@ REMARKS:
 {
 
    //generate random point within unit sphere
-   GPoint vec(0.0, 0.0, 0.0);
+   Point vec(0.0, 0.0, 0.0);
 
    while(vec.isZero())
    {
-      vec = GPoint(double(rand())/(RAND_MAX+1.0) - .5, 
+      vec = Point(double(rand())/(RAND_MAX+1.0) - .5, 
                double(rand())/(RAND_MAX+1.0) - .5,
                double(rand())/(RAND_MAX+1.0) - .5);
    }
@@ -942,7 +1070,6 @@ REMARKS:
    
    return vec;
 }
-
 /*-----------------------------------------------*/
 inline GLdouble attenuation(GLdouble distance)
 /*
@@ -956,9 +1083,8 @@ REMARKS:
 
    return ATTENUATION_FACTOR/(ATTENUATION_FACTOR + distance*distance);
 }
-
 /*-----------------------------------------------*/
-void rayTraceRay(Shape& g_scene, vector<Light> lights, const Line& ray, GPoint& color, unsigned int 
+void rayTraceRay(Shape& g_scene, vector<Light> lights, const Line& ray, Point& color, unsigned int 
 depth)
 /*
 PURPOSE: Does ray tracing of a single ray in a g_scene according to the supplied lights to the perscribed
@@ -975,18 +1101,17 @@ REMARKS:
 */
 {
    Intersection intersection;
-   g_scene.intersection(ray, GPoint(0.0, 0.0, 0.0), intersection);
+   g_scene.intersection(ray, Point(0.0, 0.0, 0.0), intersection);
    
    if(!intersection.intersects()) return;
    
-   GPoint pt = intersection.point();
+   Point pt = intersection.point();
    Material material = intersection.material();
    Line reflectedRay = intersection.reflectedRay();
    Line transmittedRay = intersection.transmittedRay();
 
-   
    Line shadowRay;
-   GPoint lColor;
+   Point lColor;
    
    size_t size = lights.size();
    for(size_t i = 0 ; i < size; i++)
@@ -994,7 +1119,7 @@ REMARKS:
       shadowRay.set(pt, lights[i].position());
       Intersection shadowIntersection;
 
-      g_scene.intersection(shadowRay, GPoint(0.0, 0.0, 0.0), shadowIntersection );
+      g_scene.intersection(shadowRay, Point(0.0, 0.0, 0.0), shadowIntersection );
       
       if(!shadowIntersection.intersects() || !shadowIntersection.material().transparency().isZero())
       {
@@ -1002,17 +1127,16 @@ REMARKS:
          color += (material.ambient()% lColor) +
             abs(intersection.normal() & shadowRay.direction())*(material.diffuse()% lColor) +
             abs(ray.direction() & reflectedRay.direction())*(material.specular()% lColor);
- 
       }
    }
    
    if(depth > 0)
    {
-      GPoint transmittedColor(0.0, 0.0, 0.0);
-      GPoint reflectedColor(0.0, 0.0, 0.0);
+      Point transmittedColor(0.0, 0.0, 0.0);
+      Point reflectedColor(0.0, 0.0, 0.0);
 
-      GPoint transparency = material.transparency();
-      GPoint opacity = GPoint(1.0, 1.0, 1.0) - transparency;
+      Point transparency = material.transparency();
+      Point opacity = Point(1.0, 1.0, 1.0) - transparency;
             
       if(!transparency.isZero() && transparency.length() > SMALL_NUMBER) //if not transparent then don't send ray
       {
@@ -1024,15 +1148,10 @@ REMARKS:
          rayTraceRay(g_scene, lights, reflectedRay, reflectedColor, depth - 1);
          color += (opacity % reflectedColor);
       }
-      
-
-
-   }
-   
+   } 
 }
-
 /*-----------------------------------------------*/
-void rayTraceScreen(Shape& g_scene, vector<Light>& lights, GPoint camera, GPoint lookAt, GPoint up, int
+void rayTraceScreen(Shape& g_scene, vector<Light>& lights, Point camera, Point lookAt, Point up, int
 bottomX, int bottomY, int width, int height)
 /*
 PURPOSE: Does the ray-tracing of a shape according to the supplied lights, camera dimension and screen dimensions
@@ -1051,25 +1170,25 @@ RETURNS:  Nothing
 REMARKS:    
 */
 {
-   GPoint lookDirection = lookAt - camera;
-   GPoint right = lookDirection * up;
+   Point lookDirection = lookAt - camera;
+   Point right = lookDirection * up;
   
    right.normalize();
-   GPoint rightOffset = width*right;
+   Point rightOffset = width*right;
 
    up = right*lookDirection;
    up.normalize();
    
-   GPoint screenPt = lookAt + bottomX*right + bottomY*up;
+   Point screenPt = lookAt + bottomX*right + bottomY*up;
    
    Line ray;
-   GPoint color(0.0, 0.0, 0.0);
-   GPoint avgColor(0.0, 0.0, 0.0);
+   Point color(0.0, 0.0, 0.0);
+   Point avgColor(0.0, 0.0, 0.0);
    
-   GPoint weightedColor(0.0, 0.0, 0.0);
-   GPoint oldWeightedColor(0.0, 0.0, 0.0);
+   Point weightedColor(0.0, 0.0, 0.0);
+   Point oldWeightedColor(0.0, 0.0, 0.0);
    GLdouble k;
-               
+
    glBegin(GL_POINTS);
       for(int j = 0; j < height; j++)
       {
@@ -1091,24 +1210,23 @@ REMARKS:
                if((weightedColor - oldWeightedColor).length() < SMALL_NUMBER*k*(k+1)) break;
                
             } 
-            //if ( k <  SUPER_SAMPLE_NUMBER && k >1) cout <<"hello"<<k<<endl;      
     
             avgColor /= k;            
             glColor3d(avgColor.x(), avgColor.y(), avgColor.z());
-
+				
             glVertex2i(i, j);
             screenPt += right;
 
+				//cout << "Color = [" << avgColor.x() << ", " << avgColor.y() << ", " << avgColor.z() << "]" << endl;
+				//cout << "Pixel = [" << i << ", " << j << "]" << endl;
          }
          screenPt -= rightOffset;
          screenPt += up;
       }
    glEnd();
-
 }
-
 /*-----------------------------------------------*/
-GPoint  convertStringCoordinate(string coordString)
+Point  convertStringCoordinate(string coordString)
 /*
 PURPOSE: Converts a string of two characters of the form: 
    letter row + number color (for example, b4) into coordinates for a piece of 
@@ -1118,76 +1236,99 @@ RETURNS: Nothing
 REMARKS:    
 */
 {
-      GPoint firstSquare(-BOARD_EDGE_SIZE/2, 0.0, BOARD_EDGE_SIZE/2);
+      Point firstSquare(-BOARD_EDGE_SIZE/2, 0.0, BOARD_EDGE_SIZE/2);
             
-      GPoint rowOffset(0.0, 0.0, -(double(coordString[0] - 'a') + .5)*SQUARE_EDGE_SIZE);
+      Point rowOffset(0.0, 0.0, -(double(coordString[0] - 'a') + .5)*SQUARE_EDGE_SIZE);
          //negative because farther back == higher row number
-      GPoint colOffset((double(coordString[1] - '0' - 1) + .5)*SQUARE_EDGE_SIZE, 0.0, 0.0);
-      GPoint heightOffset(0.0, 1.5*SQUARE_EDGE_SIZE, 0.0);
+      Point colOffset((double(coordString[1] - '0' - 1) + .5)*SQUARE_EDGE_SIZE, 0.0, 0.0);
+      Point heightOffset(0.0, 1.5*SQUARE_EDGE_SIZE, 0.0);
       
-      GPoint square = firstSquare + rowOffset + colOffset + heightOffset;
+      Point square = firstSquare + rowOffset + colOffset + heightOffset;
 
       return square;
 }
+/*-----------------------------------------------*/
+static void initShaders()
+{
+	/* PURPOSE:		Initializes Shaders to be used 
+		RECEIVES:	 
+		RETURNS:     
+		REMARKS:     
+	*/
 
+	g_shaderStates.resize(G_NUM_SHADERS);
+   for (int i = 0; i < G_NUM_SHADERS; ++i) 
+	{
+		if (G_GL2_COMPATIBLE) 
+		{
+			g_shaderStates[i].reset(new ShaderState(G_SHADER_FILES_GL2[i][0],
+																	G_SHADER_FILES_GL2[i][1]));
+		} 
+		else 
+		{
+			g_shaderStates[i].reset(new ShaderState(G_SHADER_FILES[i][0],
+																	G_SHADER_FILES[i][1]));
+		}
+	}
+}
+/*-----------------------------------------------*/
+static void initGLState()
+{
+	/*	PURPOSE:		Initializes OpenGL 
+		RECEIVES:	 
+		RETURNS:		 
+		REMARKS:		 
+	*/
+
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+   glViewport(0, 0, g_windowWidth, g_windowHeight);
+   glMatrixMode(GL_PROJECTION);
+   glLoadIdentity();
+   gluOrtho2D(0, g_windowWidth, 0, g_windowHeight); // Upside-Down
+}
 /*-----------------------------------------------*/
 void MySdlApplication::initScene()
-/*
-PURPOSE: gets locations of objects from users
-         sets the background color to black,
-         sets up display list for coordinate axes,
-                 initializes extrusions vector
-                 
-RECEIVES: Nothing
-RETURNS: Nothing
-REMARKS:    
-*/
+	/*	PURPOSE: gets locations of objects from users
+					sets the background color to black,
+					sets up display list for coordinate axes,
+					initializes extrusions vector
+		RECEIVES: Nothing
+		RETURNS: Nothing
+		REMARKS:    
+	*/
 {
 
-   GPoint boardPosition(0.0, 0.0, 0.0);
+   Point boardPosition(0.0, 0.0, 0.0);
    CheckerBoard *checkerBoard = new CheckerBoard(boardPosition);
    g_scene.addRayObject(checkerBoard);
 
    string tmp;
    
    cout << "Please enter the position of the light:\n";
-   cin >> tmp;
-   //tmp ="b6"; //commented values are nice values to demonstrate the ray tracer
-   g_lightPosition = GPoint(BOARD_POSITION) + GPoint(0.0, 3.5*SQUARE_EDGE_SIZE, 0.0) + convertStringCoordinate(tmp);
+   //cin >> tmp;
+   tmp ="b6"; //commented values are nice values to demonstrate the ray tracer
+   g_lightPosition = Point(BOARD_POSITION) + Point(0.0, 3.5*SQUARE_EDGE_SIZE, 0.0) + convertStringCoordinate(tmp);
       //with what convertStringCoordinate gives makes 5 squares above board
-
+	
    cout << "Please enter the position of the tetrahedron:\n";
-   cin >>tmp;
-   //tmp = "b4";
+   //cin >>tmp;
+   tmp = "b4";
    Tetrahedron *tetrahedron = new Tetrahedron(convertStringCoordinate(tmp), SQUARE_EDGE_SIZE);
    g_scene.addRayObject(tetrahedron);
-
+	
    cout << "Please enter the position of the sphere:\n";
-   cin >> tmp;
-   //tmp = "d7";
+   //cin >> tmp;
+   tmp = "d7";
    Sphere *sphere = new Sphere(convertStringCoordinate(tmp), SQUARE_EDGE_SIZE/2);
    g_scene.addRayObject(sphere);
-
+	
    cout << "Please enter the position of the cube:\n";
-   cin >> tmp;
-   //tmp = "a7";
+   //cin >> tmp;
+   tmp = "a7";
    Cube *cube = new Cube(convertStringCoordinate(tmp), SQUARE_EDGE_SIZE);   
    g_scene.addRayObject(cube);
-   
-   
-
-   glClearColor(0.0, 0.0, 0.0, 0.0);
-        
-   glViewport(0, 0, g_windowWidth, g_windowHeight);
-
-   glMatrixMode(GL_PROJECTION);
-   glLoadIdentity();
-   gluOrtho2D(0, g_windowWidth, 0, g_windowHeight);
-
-
+	
 }
-
-
 /*-----------------------------------------------*/
 void draw()
 /*
@@ -1204,17 +1345,16 @@ REMARKS:
    
    lights.push_back(Light(g_lightColor, g_lightPosition));
    
-   GPoint camera(CAMERA_POSITION);
-   GPoint lookAt(LOOK_AT_VECTOR);   
-   GPoint up(UP_VECTOR); 
+   Point camera(CAMERA_POSITION);
+   Point lookAt(LOOK_AT_VECTOR);   
+   Point up(UP_VECTOR); 
    
    rayTraceScreen(g_scene, lights, camera, lookAt, up, -g_windowWidth/2, -g_windowHeight/2, g_windowWidth, g_windowHeight);
  
    glFlush();
 }
-
 /*-----------------------------------------------*/
-void reshapeFn(int newWidth, int newHeight)
+void reshape(int newWidth, int newHeight)
 /*
 PURPOSE: To redraw g_scene when  window gets resized.
 RECEIVES: newWidth -- new window x size
@@ -1234,7 +1374,20 @@ REMARKS:
    
    glClear(GL_COLOR_BUFFER_BIT);
 }
+/*-----------------------------------------------*/
+void MySdlApplication::keyboard()
+{
+	/* PURPOSE:		Handles keyboard presses by user 
+		RECEIVES:	 
+		RETURNS:		 
+		REMARKS:		Player related controls are handled through player class
+	*/
 
+	if (KB_STATE[SDL_SCANCODE_ESCAPE])
+	{
+		running = false;
+	}
+}
 /*-----------------------------------------------*/
 void MySdlApplication::onLoop()
 {
@@ -1248,6 +1401,27 @@ void MySdlApplication::onLoop()
 	keyboard();
 }
 /*-----------------------------------------------*/
+void simpleDraw()
+{
+	int x, y, w, h;
+	float color[4] = {1,1,0,1};
+	x = 10;
+	y = 10;
+	w = 5;
+	h = 5;
+
+	glClear(GL_COLOR_BUFFER_BIT);
+	glBegin(GL_QUADS);
+	{
+		glColor4f(color[0], color[1], color[2], color[3]);
+		glVertex2i(x, y);
+		glVertex2i(x + w, y);
+		glVertex2i(x + w, y + h);
+		glVertex2i(x, y + h);
+	}
+	glEnd();
+}
+/*-----------------------------------------------*/
 void MySdlApplication::onRender()
 {
 	/*	PURPOSE:		Handles all graphics related calls once per SDL loop 
@@ -1257,12 +1431,14 @@ void MySdlApplication::onRender()
 	*/
 
 	// All draw calls go here
-	glUseProgram(g_shaderStates[g_activeShader]->program);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	//glUseProgram(g_shaderStates[g_activeShader]->program);
+	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	// clear framebuffer color&depth
-	draw();
 
-	SDL_GL_SwapWindow(display);
+	draw();
+	//simpleDraw();
+
+	SDL_GL_SwapWindow(g_display);
 	checkGlErrors();
 }
 /*-----------------------------------------------*/
@@ -1304,7 +1480,8 @@ bool MySdlApplication::onInit()
 		REMARKS:		 
 	*/
 	
-	if(SDL_Init(SDL_INIT_EVERYTHING) < 0) 
+	//if(SDL_Init(SDL_INIT_EVERYTHING) < 0) 
+	if(SDL_Init(SDL_INIT_VIDEO) < 0)
 	{
 		return false;
    }
@@ -1316,7 +1493,7 @@ bool MySdlApplication::onInit()
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
-	if((display = SDL_CreateWindow("Ray Trace",
+	if((g_display = SDL_CreateWindow("Ray Trace",
 	g_initX, g_initY, g_windowWidth, g_windowHeight,
 		SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE)) == NULL) 
 	{
@@ -1324,7 +1501,7 @@ bool MySdlApplication::onInit()
 	}
 
 	/* Create our opengl context and attach it to our window */
-	SDL_GLContext maincontext = SDL_GL_CreateContext(display);
+	SDL_GLContext maincontext = SDL_GL_CreateContext(g_display);
 	/* This makes our buffer swap syncronized with the 
 	monitor's vertical refresh */
 	SDL_GL_SetSwapInterval(1);
@@ -1351,12 +1528,9 @@ bool MySdlApplication::onInit()
 		throw runtime_error(
 			"Error: does not support OpenGL Shading Language v1.0");
 
-   initScene();
+   //initShaders();
+	initScene();
 	initGLState();
-	initShaders();
-	//initGeometry();
-	//initTextures();
-	initCamera();
 
 	KB_STATE = SDL_GetKeyboardState(NULL);
 
@@ -1375,12 +1549,14 @@ void MySdlApplication::onEvent(SDL_Event* event)
 
 	if (type == SDL_QUIT)
 		running = false;
+	/*
 	else if (type == SDL_MOUSEBUTTONDOWN)
 		mouse(event->button);
 	else if (type == SDL_MOUSEBUTTONUP)
 		mouse(event->button);
 	else if (type == SDL_MOUSEMOTION)
 		motion(event->motion.x, event->motion.y);
+	*/
 	else if (type == SDL_WINDOWEVENT)
 		if (event->window.event == SDL_WINDOWEVENT_RESIZED)
 			reshape(event->window.data1,event->window.data2);

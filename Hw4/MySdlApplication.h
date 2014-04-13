@@ -19,7 +19,7 @@ class MySdlApplication
 {
     private:
         bool running;
-        SDL_Window* display;
+        SDL_Window* g_display;
         void keyboard(const char * key);
         void mouse(SDL_MouseButtonEvent button);
         void motion(const int x, const int y);

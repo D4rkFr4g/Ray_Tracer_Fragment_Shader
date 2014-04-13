@@ -18,64 +18,13 @@
     <None Include="Shaders\basic-gl2.vshader">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="Shaders\cube-gl3.fshader">
-      <Filter>Shaders</Filter>
-    </None>
     <None Include="Shaders\basic-gl3.vshader">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="Shaders\cube-gl2.fshader">
+    <None Include="Shaders\solid-gl2.fshader">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="Shaders\flower-gl2.fshader">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\flower-gl3.fshader">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\normal-gl2.fshader">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\normal-gl3.fshader">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\texture-gl2.fshader">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\texture-gl3.fshader">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\anisotropy-gl3.fshader">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\crater-gl3.fshader">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\crater-gl2.fshader">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\shiny-gl2.fshader">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\shiny-gl3.fshader">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\diffuse-gl2.fshader">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\diffuse-gl3.fshader">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\terrain-gl3.fshader">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\terrain-gl2.fshader">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\terrain-gl2.vshader">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\terrain-gl3.vshader">
+    <None Include="Shaders\solid-gl3.fshader">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

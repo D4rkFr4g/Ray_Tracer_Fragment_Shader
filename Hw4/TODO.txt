@@ -1,0 +1,45 @@
+Done - First, get the existing code to work in SDL as per HW3. 
+
+- Next in the interface rather than asking first for the light source position, 
+then the tetrahedron location, then the cube location, then the sphere, 
+it asks the user to select the type of the object to add: 
+(a) light, (b) tetrahedron, (c) cube, (d) sphere, (e) cylinder, (f) cone. 
+Here (e) and (f) are new. It then gets the location of the objects. 
+If this is in a currently occupied location the old object is overridden. 
+Finally, it asks if you would like to add another object. 
+If you say yes, you go through the above again, on no, your program should 
+draw the scene using ray-tracing.
+
+- I want your project to do ray-tracing in GPU-land using a fragment shader. 
+The geometry which comes to the vertex shader 
+from OpenGL for your project should consist of just two triangles representing 
+the window. The objects in the scene to be rendered are passed to the vertex 
+shader as uniform variable arrays and these are passed through to the fragment 
+shader (along with gl_Position). Using a varying variable for position, the 
+fragment shader knows where it is at within the square represented by the two 
+triangles. So using this position we can shoot a ray out through our scene to 
+do ray tracing and compute a color value to be drawn. In shader-land, you can 
+make structs for things like triangles, spheres, cones, etc. You can also create 
+arrays of structs for each primitive type you need. Since shaders are just strings 
+before they are compiled, you can adjust your shader string based on the user inputs 
+to be of the correct size to handle the user data. You can pass data collected from the 
+user and send it to the shader using uniform variables. Structs in shaders are like C 
+structs. Unlike C++, our fragment shader struct's cannot have member functions. 
+So you will need to rewrite the intersect calculation as just functions which check 
+against each member of the struct array for triangles, or which check against the 
+struct array for cones, etc. The existing code does shadow rays and super sampling. 
+You do not need to make these work in your shader to receive full credit.
+
+Point Breakdown
+
+
+- Code well-documented follows SJSU CS guidelines for C++. (Undergrad version) (1pt)
+Done - Code rewritten using SDL	(1pt)
+- New user interface as described	(1pt)
+- Vertex shader as described	(1pt)
+- Scene drawn using ray-tracing in the fragment shader. (1pt) 
+- Spheres, lights, and checker drawn at user given coords (1pt)
+- Objects input by user sent to fragment shader as uniform variable	(1pt)
+- Ray tracing intersections calculated by shader for five primitive types (0.5pt) or (2.5pts)
+- Scene draws correctly under a variety of inputs	(0.5pts)
+Total	10pts
