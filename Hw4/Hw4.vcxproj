@@ -77,14 +77,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="glsupport.cpp" />
-    <ClCompile Include="GPoint.cpp" />
     <ClCompile Include="MySdlApplication.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cvec.h" />
     <ClInclude Include="geometrymaker.h" />
     <ClInclude Include="glsupport.h" />
-    <ClInclude Include="GPoint.h" />
     <ClInclude Include="matrix4.h" />
     <ClInclude Include="MySdlApplication.h" />
   </ItemGroup>

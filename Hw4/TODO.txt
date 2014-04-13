@@ -1,6 +1,6 @@
 Done - First, get the existing code to work in SDL as per HW3. 
 
-- Next in the interface rather than asking first for the light source position, 
+Done - Next in the interface rather than asking first for the light source position, 
 then the tetrahedron location, then the cube location, then the sphere, 
 it asks the user to select the type of the object to add: 
 (a) light, (b) tetrahedron, (c) cube, (d) sphere, (e) cylinder, (f) cone. 
@@ -35,7 +35,7 @@ Point Breakdown
 
 - Code well-documented follows SJSU CS guidelines for C++. (Undergrad version) (1pt)
 Done - Code rewritten using SDL	(1pt)
-- New user interface as described	(1pt)
+Done - New user interface as described	(1pt)
 - Vertex shader as described	(1pt)
 - Scene drawn using ray-tracing in the fragment shader. (1pt) 
 - Spheres, lights, and checker drawn at user given coords (1pt)

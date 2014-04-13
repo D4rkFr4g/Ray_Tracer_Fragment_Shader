@@ -10,6 +10,7 @@
 #include <cmath>
 #include <vector>
 #include <string>
+#include <map>
 
 #include "glsupport.h"
 
@@ -17,23 +18,29 @@ using namespace std;
 
 class MySdlApplication
 {
-    private:
-        bool running;
-        SDL_Window* g_display;
-        void keyboard(const char * key);
-        void mouse(SDL_MouseButtonEvent button);
-        void motion(const int x, const int y);
+   private:
+      // Globals
+      bool g_running;
+      SDL_Window* g_display;
 
-    public:
-		MySdlApplication();
-        int onExecute();
-        bool onInit();
-		void onEvent(SDL_Event* Event);
-        void keyboard();
-        void onLoop();
-        void onRender();
-        void onCleanup();
-        void initScene();
+      // Functions
+      void keyboard(const char * key);
+      void mouse(SDL_MouseButtonEvent button);
+      void motion(const int x, const int y);
+
+   public:
+      // Functions
+      MySdlApplication();
+      int onExecute();
+      bool onInit();
+      void onEvent(SDL_Event* Event);
+      void keyboard();
+      void onLoop();
+      void onRender();
+      void onCleanup();
+      void initScene();
+      void initScene2();
+      void loadScene();
 };
 
 #endif

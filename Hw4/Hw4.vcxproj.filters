@@ -3,7 +3,6 @@
   <ItemGroup>
     <ClCompile Include="glsupport.cpp" />
     <ClCompile Include="MySdlApplication.cpp" />
-    <ClCompile Include="GPoint.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cvec.h" />
@@ -11,7 +10,6 @@
     <ClInclude Include="glsupport.h" />
     <ClInclude Include="matrix4.h" />
     <ClInclude Include="MySdlApplication.h" />
-    <ClInclude Include="GPoint.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="TODO.txt" />
