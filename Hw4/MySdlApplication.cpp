@@ -947,7 +947,7 @@ Cube::Cube(Point p, GLdouble edgeSize) : Shape(p, g_cubeMaterial, sqrt((double)3
 }
 // Cylinder Class Implementations
 /*-----------------------------------------------*/
-Cylinder::Cylinder(Point p, GLdouble radius, GLdouble height)// : Shape(p, g_cubeMaterial, radius * height/2, false)
+Cylinder::Cylinder(Point p, GLdouble radius, GLdouble height)// : Shape(Point(p.x(), p.y() - height, p.z()), g_cubeMaterial, radius * height/2, false)
 {
    /* PURPOSE: constructs a Cylinder at the given offset position, radius, and height in our Scene
       RECEIVES:p -- position offset into our g_scene
@@ -995,7 +995,7 @@ Cylinder::Cylinder(Point p, GLdouble radius, GLdouble height)// : Shape(p, g_cub
 }
 // Cone Class Implementations
 /*-----------------------------------------------*/
-Cone::Cone(Point p, GLdouble radius, GLdouble height)// : Shape(p, g_tetrahedronMaterial, sqrt((double)3)*radius/2,
+Cone::Cone(Point p, GLdouble radius, GLdouble height)// : Shape(Point(p.x(),p.y()-height,p.z()), g_tetrahedronMaterial, 200, false)
 {
    /* PURPOSE: constructs a Cone at the given offset position, radius, and height in our Scene
       RECEIVES:p -- position offset into our g_scene
