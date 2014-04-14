@@ -949,12 +949,22 @@ Cube::Cube(Point p, GLdouble edgeSize) : Shape(p, g_cubeMaterial, sqrt((double)3
 /*-----------------------------------------------*/
 Cylinder::Cylinder(Point p, GLdouble radius, GLdouble height)// : Shape(p, g_cubeMaterial, radius * height/2, false)
 {
+   /* PURPOSE: constructs a Cylinder at the given offset position, radius, and height in our Scene
+      RECEIVES:p -- position offset into our g_scene
+               radius -- radius of the cylinder
+               height -- Height of the cylinder
+      RETURNS: a cylinder object
+      REMARKS: note g_tetrahedronMaterial is a global in this file
+   */
+
    int numPoints = 10;
    Point zero(0.0, 0.0, 0.0);
    Point top = Point(0, height, 0);
    vector<Point> points;
    points.reserve(numPoints);
    double dr = 360 / numPoints;
+
+   p = p - top;
 
    // Calculate all reference points
    for (int i = 0; i < numPoints; i++)
@@ -982,6 +992,47 @@ Cylinder::Cylinder(Point p, GLdouble radius, GLdouble height)// : Shape(p, g_cub
       addRayObject(new Triangle(zero, g_tetrahedronMaterial, points[i], points[j], points[j] + top));
    }
    
+}
+// Cone Class Implementations
+/*-----------------------------------------------*/
+Cone::Cone(Point p, GLdouble radius, GLdouble height)// : Shape(p, g_tetrahedronMaterial, sqrt((double)3)*radius/2,
+{
+   /* PURPOSE: constructs a Cone at the given offset position, radius, and height in our Scene
+      RECEIVES:p -- position offset into our g_scene
+               radius -- radius of the Cone
+               height -- height of the cone
+      RETURNS: a cylinder object
+      REMARKS: note g_tetrahedronMaterial is a global in this file
+   */
+
+   int numPoints = 10;
+   Point zero(0.0, 0.0, 0.0);
+   Point top = Point(0, height, 0);
+   vector<Point> points;
+   points.reserve(numPoints);
+   double dr = 360 / numPoints;
+
+   p = p - top;
+
+   // Calculate all reference points
+   for (int i = 0; i < numPoints; i++)
+   {
+      double x = p.x() + radius * cos(dr * i);
+      double z = p.z() + radius * sin(dr * i);
+      points.push_back(Point(x, p.y(), z));
+   }
+
+   for (int i = 1; i < numPoints - 1; i++)
+   {
+      // Bottom
+      addRayObject(new Triangle(zero, g_tetrahedronMaterial, points[0], points[i], points[i+1]));
+   }
+   // Sides
+   for (int i = 0; i < numPoints; i++)
+   {
+      int j = (i+1) % numPoints;
+      addRayObject(new Triangle(zero, g_tetrahedronMaterial, points[i], points[j], p + top));
+   }
 }
 //CheckerBoard Class Implementations
 /*-----------------------------------------------*/
@@ -1389,7 +1440,7 @@ void MySdlApplication::initScene2()
          int type = tmp[0] - 'a';
          if (type >= 0 && type < 6)
          {
-            cout << "Please enter the position: (A1-H8)" << endl;
+            cout << "Please enter the position: (a1-h8)" << endl;
             cin >> tmp;
 
             boardMap[tmp] = type;
@@ -1404,12 +1455,12 @@ void MySdlApplication::initScene2()
          cout << "Would you like to add another object? (yes/no)" << endl;
          cin >> tmp;
 
-         if (!tmp.compare("no"))
+         if (!tmp.compare("no") || !tmp.compare("n"))
          {
             isFinished = true;
             hasAnswered = true;
          }
-         else if (!tmp.compare("yes"))
+         else if (!tmp.compare("yes") || !tmp.compare("y"))
             hasAnswered = true;
       }
    }
@@ -1457,6 +1508,8 @@ void MySdlApplication::loadScene()
       }
       else if (type == CONE)
       {
+         Cone *cone = new Cone(convertStringCoordinate(position), SQUARE_EDGE_SIZE/2, SQUARE_EDGE_SIZE/2);
+         g_scene.addRayObject(cone);
       }
    }
 }
