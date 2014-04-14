@@ -13,7 +13,9 @@ draw the scene using ray-tracing.
 - I want your project to do ray-tracing in GPU-land using a fragment shader. 
 The geometry which comes to the vertex shader 
 from OpenGL for your project should consist of just two triangles representing 
-the window. The objects in the scene to be rendered are passed to the vertex 
+the window. 
+
+- The objects in the scene to be rendered are passed to the vertex 
 shader as uniform variable arrays and these are passed through to the fragment 
 shader (along with gl_Position). Using a varying variable for position, the 
 fragment shader knows where it is at within the square represented by the two 
