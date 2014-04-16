@@ -1110,7 +1110,6 @@ void CheckerBoard::intersection(const Line& ray, const Point& positionOffset, In
          inter.setMaterial(g_blackSquare);
       }
    }
-
 }
 
 //CLASSLESS FUNCTIONS
