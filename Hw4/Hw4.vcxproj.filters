@@ -13,16 +13,10 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="TODO.txt" />
-    <None Include="Shaders\basic-gl2.vshader">
-      <Filter>Shaders</Filter>
-    </None>
     <None Include="Shaders\basic-gl3.vshader">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="Shaders\solid-gl2.fshader">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="Shaders\solid-gl3.fshader">
+    <None Include="Shaders\ray-tracer-gl3.fshader">
       <Filter>Shaders</Filter>
     </None>
   </ItemGroup>

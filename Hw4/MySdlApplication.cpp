@@ -13,21 +13,162 @@
 //#include "GPoint.h"
 
 //   CONSTANTS
-enum { LIGHT, TETRAHEDRON, CUBE, SPHERE, CYLINDER, CONE };
+#define SF_RAY 0
+enum { TETRAHEDRON, CUBE, SPHERE, CYLINDER, CONE, LIGHT };
 static const bool G_GL2_COMPATIBLE = false;
 static const unsigned char* KB_STATE = NULL;
-//static const float G_FRUST_MIN_FOV = 60.0;  //A minimal of 60 degree field of view
-static const int G_NUM_SHADERS = 1;
+static const float G_FRUST_MIN_FOV = 60.0;  //A minimal of 60 degree field of view
+static const float G_FRUST_NEAR = -0.1;    // near plane
+static const float G_FRUST_FAR = -50.0;    // far plane
+static const int G_INIT_X = 100, G_INIT_Y = 100; // used for initial position of window
 
+static float g_frustFovY = G_FRUST_MIN_FOV; // FOV in y direction
+static int g_windowWidth = 500, g_windowHeight = 500; // used for size of window
+
+static bool g_mouseClickDown = false;    // is the mouse button pressed
+static bool g_mouseLClickButton, g_mouseRClickButton, g_mouseMClickButton;
+static int g_mouseClickX, g_mouseClickY; // coordinates for mouse click event
+static int g_activeShader = 0;
+
+unsigned char g_kbPrevState[SDL_NUM_SCANCODES] = {0};
+map <string, int> g_boardMap;
+
+/*-----------------------------------------------*/
+struct ShaderState 
+{
+   GlProgram program;
+
+   // Handles to uniform variables
+   GLint h_uProjMatrix;
+   GLint h_uModelViewMatrix;
+	GLint h_uEyePosition;
+	GLint h_uGeometry;
+	GLint h_uLights;
+
+   // Handles to vertex attributes
+   GLint h_aPosition;
+
+   /*-----------------------------------------------*/
+   ShaderState(const char* vsfn, const char* fsfn) 
+   {
+      /*	PURPOSE:		Constructor for ShaderState Object 
+      RECEIVES:	vsfn - Vertex Shader Filename
+      fsfn - Fragement Shader Filename
+      RETURNS:		ShaderState object
+      REMARKS:		
+      */
+
+      readAndCompileShader(program, vsfn, fsfn);
+
+      const GLuint h = program; // short hand
+
+      // Retrieve handles to uniform variables
+      h_uProjMatrix = safe_glGetUniformLocation(h, "uProjMatrix");
+      h_uModelViewMatrix = safe_glGetUniformLocation(h, "uModelViewMatrix");
+		h_uGeometry = safe_glGetUniformLocation(h, "uGeometry");
+		h_uEyePosition = safe_glGetUniformLocation(h, "uEyePosition");
+		h_uLights = safe_glGetUniformLocation(h, "uLights");
+
+      // Retrieve handles to vertex attributes
+      h_aPosition = safe_glGetAttribLocation(h, "aPosition");
+
+      if (!G_GL2_COMPATIBLE)
+         glBindFragDataLocation(h, 0, "fragColor");
+      checkGlErrors();
+   }
+   /*-----------------------------------------------*/
+};
+/*-----------------------------------------------*/
+
+static const int G_NUM_SHADERS = 1;
 static const char * const G_SHADER_FILES[G_NUM_SHADERS][2] = 
 {
-   {"./Shaders/basic-gl3.vshader", "./Shaders/solid-gl3.fshader"},
+   {"./Shaders/basic-gl3.vshader", "./Shaders/ray-tracer-gl3.fshader"},
 };
 static const char * const G_SHADER_FILES_GL2[G_NUM_SHADERS][2] = 
 {
-   {"./Shaders/basic-gl2.vshader", "./Shaders/solid-gl2.fshader"},
+   {"./Shaders/basic-gl2.vshader", "./Shaders/ray-tracer-gl2.fshader"},
 };
+static vector<shared_ptr<ShaderState> > G_SHADER_STATES; // our global shader states
 
+// Macro used to obtain relative offset of a field within a struct
+#define FIELD_OFFSET(StructType, field) &(((StructType *)0)->field)
+
+/*-----------------------------------------------*/
+struct Geometry
+{
+    GlBufferObject vbo, texVbo, ibo;
+    int vboLen, iboLen;
+
+    Geometry(GenericVertex *vtx, unsigned short *idx, int vboLen, int iboLen)
+    {
+        this->vboLen = vboLen;
+        this->iboLen = iboLen;
+
+        // Now create the VBO and IBO
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(GenericVertex) * vboLen, vtx,
+                     GL_STATIC_DRAW);
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned short) * iboLen,
+                     idx, GL_STATIC_DRAW);
+    }
+
+    void draw(const ShaderState& curSS)
+    {
+        // Enable the attributes used by our shader
+        safe_glEnableVertexAttribArray(curSS.h_aPosition);
+
+        // bind vbo
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        safe_glVertexAttribPointer(curSS.h_aPosition, 3, GL_FLOAT, GL_FALSE,
+            sizeof(GenericVertex), FIELD_OFFSET(GenericVertex, pos));
+        // bind ibo
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+
+        // draw!
+        glDrawElements(GL_TRIANGLES, iboLen, GL_UNSIGNED_SHORT, 0);
+
+        // Disable the attributes used by our shader
+        safe_glDisableVertexAttribArray(curSS.h_aPosition);
+    }
+};
+/*-----------------------------------------------*/
+// Vertex buffer and index buffer associated with the ground and cube geometry
+static shared_ptr<Geometry> g_plane;
+
+// --------- Scene
+
+// define light positions in world space
+static Matrix4 g_skyRbt = Matrix4::makeTranslation(Cvec3(0.0, 0.0, 1.5));
+static Matrix4 g_objectRbt[1] = {Matrix4::makeTranslation(Cvec3(0,0,0))};
+// currently only 1 obj is defined
+static Cvec3f g_objectColors[1] = {Cvec3f(1, 0, 0)};
+
+/*
+   Data that will be sent to the shader for ray tracing
+   Format in array for shapes:
+   If type is:
+   TETRAHEDRON: type, edge_length, c_x, c_y, c_z, dummy
+   CUBE: type, edge_length, c_x, c_y, c_z, dummy
+   SPHERE: type, radius, c_x, c_y, c_z, dummy
+   CYLINDER: type, radius, height, c_x, c_y, c_z
+   CONE: type, radius, height, c_x, c_y, c_z
+ */
+static GLfloat g_eyePosition[3] = { 0.0, 0.0, 1.0};
+#define NUM_LIGHTS 1
+#define LIGHT_STRIDE 3
+static GLfloat g_Lights[3] = { 0.0, 5.0, 0.0 };
+#define NUM_SHAPES 1
+#define GEOMETRY_STRIDE 6
+//for your code you get this geometry data from user input
+static GLfloat g_geometryData[NUM_SHAPES * GEOMETRY_STRIDE] = 
+	{ SPHERE, -0.2, 0.0, 0.0, 0.0, 0.0 };
+///////////////// END OF G L O B A L S ///////////////////////
+
+//-------------- Code to be moved to Shader ---------------//
+//--------------------------------------------------------//
 const GLdouble WHITE[3] = {1.0, 1.0, 1.0}; //RGB for white
 const GLdouble BLACK[3] = {0.0, 0.0, 0.0}; //RGB for black
 const GLdouble RED[3] = {1.0, 0.0, 0.0}; //RGB for RED
@@ -50,84 +191,9 @@ const unsigned int MAX_DEPTH = 5; // maximum depth our ray-tracing tree should g
 const GLdouble SMALL_NUMBER = .0001; // used rather than check with zero to avoid round-off problems 
 
 const GLdouble SUPER_SAMPLE_NUMBER = 16; // how many random rays per pixel
+//--------------------------------------------------------//
+//------------- Code to be moved to Shader ---------------//
 
-struct ShaderState 
-{
-   GlProgram program;
-
-   // Handles to uniform variables
-   GLint h_uProjMatrix;
-   GLint h_uModelViewMatrix;
-   GLint h_uNormalMatrix;
-   /*
-   GLint h_uLight, h_uLight2;
-   GLint h_uColor;
-   GLint h_uTexUnit0;
-   GLint h_uTexUnit1;
-   GLint h_uTexUnit2;
-   GLint h_uSamples;
-   GLint h_uSampledx;
-   GLint h_uSampledy;
-   */
-
-   // Handles to vertex attributes
-   GLint h_aPosition;
-   GLint h_aNormal;
-   /*
-   GLint h_aTangent;
-   GLint h_aTexCoord0;
-   GLint h_aTexCoord1;
-   GLint h_aTexCoord2;
-   */
-
-   /*-----------------------------------------------*/
-   ShaderState(const char* vsfn, const char* fsfn) 
-   {
-      /*	PURPOSE:		Constructor for ShaderState Object 
-      RECEIVES:	vsfn - Vertex Shader Filename
-      fsfn - Fragement Shader Filename
-      RETURNS:		ShaderState object
-      REMARKS:		
-      */
-
-      readAndCompileShader(program, vsfn, fsfn);
-
-      const GLuint h = program; // short hand
-
-      // Retrieve handles to uniform variables
-      h_uProjMatrix = safe_glGetUniformLocation(h, "uProjMatrix");
-      h_uModelViewMatrix = safe_glGetUniformLocation(h, "uModelViewMatrix");
-      //h_uNormalMatrix = safe_glGetUniformLocation(h, "uNormalMatrix");
-
-      /*
-      h_uLight = safe_glGetUniformLocation(h, "uLight");
-      h_uLight2 = safe_glGetUniformLocation(h, "uLight2");
-      h_uColor = safe_glGetUniformLocation(h, "uColor");
-      h_uTexUnit0 = safe_glGetUniformLocation(h, "uTexUnit0");
-      h_uTexUnit1 = safe_glGetUniformLocation(h, "uTexUnit1");
-      h_uTexUnit2 = safe_glGetUniformLocation(h, "uTexUnit2");
-      h_uSamples = safe_glGetUniformLocation(h, "uSamples");
-      h_uSampledx = safe_glGetUniformLocation(h, "uSampledx");
-      h_uSampledy = safe_glGetUniformLocation(h, "uSampledy");
-      */
-
-      // Retrieve handles to vertex attributes
-      h_aPosition = safe_glGetAttribLocation(h, "aPosition");
-      //h_aNormal = safe_glGetAttribLocation(h, "aNormal");
-      /*
-      h_aTangent = safe_glGetAttribLocation(h, "aTangent");
-      h_aTexCoord0 = safe_glGetAttribLocation(h, "aTexCoord0");
-      h_aTexCoord1 = safe_glGetAttribLocation(h, "aTexCoord1");
-      h_aTexCoord2 = safe_glGetAttribLocation(h, "aTexCoord2");
-      */
-
-      if (!G_GL2_COMPATIBLE)
-         glBindFragDataLocation(h, 0, "fragColor");
-      checkGlErrors();
-   }
-   /*-----------------------------------------------*/
-};
-/*-----------------------------------------------*/
 // PROTOTYPES
 class RayObject;
 
@@ -566,10 +632,8 @@ public:
 
 };
 
+// ------------- Code to be moved to Shader ---------------//
 //   GLOBAL VARIABLES
-GLsizei g_windowWidth = 500, g_windowHeight = 500; // used for size of window
-GLsizei g_initX = 100, g_initY = 100; // used for initial position of window
-
 Point g_lightPosition(0.0, 0.0, 0.0); /* although the ray tracer actually supports
                                       giving it a vector of lights, this program only makes use of one
                                       light which is placed at g_lightPosition The value is later changed from this
@@ -588,21 +652,7 @@ Material g_tetrahedronMaterial(g_blackColor, g_blackColor, .1*g_whiteColor, g_wh
 Material g_cubeMaterial(.1*g_redColor, .4*g_redColor, g_redColor, g_blackColor, 1);
 
 Shape g_scene(BOARD_POSITION, Material(), sqrt((double)3)*BOARD_HALF_SIZE, false); // global shape for whole g_scene
-
-static vector<shared_ptr<ShaderState> > g_shaderStates; // our global shader states
-unsigned char kbPrevState[SDL_NUM_SCANCODES] = {0};
-static int g_activeShader = 0;
-map <string, int> boardMap;
-
-/*
-static float g_frustFovY = G_FRUST_MIN_FOV; // FOV in y direction
-
-// Macro used to obtain relative offset of a field within a struct
-#define FIELD_OFFSET(StructType, field) &(((StructType *)0)->field)
-
-///////////////// END OF G L O B A L S ///////////////////////
-*/
-
+// ------------- Code to be moved to Shader ---------------//
 
 //   IMPLEMENTATIONS
 
@@ -1344,6 +1394,102 @@ Point  convertStringCoordinate(string coordString)
 
    return square;
 }
+
+
+
+
+
+
+
+
+
+/*-----------------------------------------------*/
+static void initPlane()
+{
+   /*	PURPOSE:		Intializes a geometric plane object 
+      RECEIVES:	 
+      RETURNS:		 
+      REMARKS:		 
+   */
+
+    int ibLen, vbLen;
+    getPlaneVbIbLen(vbLen, ibLen);
+
+    // Temporary storage for cube geometry
+    vector<GenericVertex> vtx(vbLen);
+    vector<unsigned short> idx(ibLen);
+
+    makePlane(1, vtx.begin(), idx.begin());
+    g_plane.reset(new Geometry(&vtx[0], &idx[0], vbLen, ibLen));
+}
+
+// takes a projection matrix and send to the the shaders
+static void sendProjectionMatrix(const ShaderState& curSS,
+                                 const Matrix4& projMatrix)
+{
+   /*	PURPOSE:		Sends projection matrix to the shader 
+      RECEIVES:	curSS - The current ShaderState to use for rendering
+                  projMatrix - The projection matrix for the scene to be drawn
+      RETURNS:		 
+      REMARKS:		 
+   */
+
+    GLfloat glmatrix[16];
+    projMatrix.writeToColumnMajorMatrix(glmatrix); // send projection matrix
+    safe_glUniformMatrix4fv(curSS.h_uProjMatrix, glmatrix);
+}
+
+// takes MVM and its normal matrix to the shaders
+static void sendGeometry(const ShaderState& curSS,
+                                      const Matrix4& MVM)
+{
+   /*	PURPOSE:		Sends geometry to the shader 
+      RECEIVES:	curSS - The current ShaderState to use for rendering
+                  MVM - The ModelView matrix for the scene to be drawn
+      RETURNS:		 
+      REMARKS:		 
+   */
+
+    GLfloat glmatrix[16];
+    MVM.writeToColumnMajorMatrix(glmatrix); // send MVM
+    safe_glUniformMatrix4fv(curSS.h_uModelViewMatrix, glmatrix);
+
+	glUniform1fv(curSS.h_uEyePosition, 3, g_eyePosition);
+	glUniform1fv(curSS.h_uLights, NUM_LIGHTS * LIGHT_STRIDE, g_geometryData);
+	glUniform1fv(curSS.h_uGeometry, NUM_SHAPES * GEOMETRY_STRIDE, g_geometryData);
+}
+
+// update g_frustFovY from G_FRUST_MIN_FOV, g_windowWidth, and g_windowHeight
+static void updateFrustFovY()
+{
+   /*	PURPOSE:		Adjusts the projection frustrum 
+      RECEIVES:	 
+      RETURNS:		 
+      REMARKS:		 
+   */
+
+    if (g_windowWidth >= g_windowHeight)
+        g_frustFovY = G_FRUST_MIN_FOV;
+    else {
+        const double RAD_PER_DEG = 0.5 * CS175_PI/180;
+        g_frustFovY = atan2(sin(G_FRUST_MIN_FOV * RAD_PER_DEG) * g_windowHeight
+                            / g_windowWidth,
+                            cos(G_FRUST_MIN_FOV * RAD_PER_DEG)) / RAD_PER_DEG;
+    }
+}
+
+static Matrix4 makeProjectionMatrix()
+{
+   /*	PURPOSE:		Creates a projection matrix for the scene 
+      RECEIVES:	 
+      RETURNS:		Matrix4 that represents the projection matrix 
+      REMARKS:		 
+   */
+
+    return Matrix4::makeProjection(g_frustFovY,
+        g_windowWidth / static_cast <double> (g_windowHeight),
+        G_FRUST_NEAR, G_FRUST_FAR);
+}
 /*-----------------------------------------------*/
 static void initShaders()
 {
@@ -1353,17 +1499,17 @@ static void initShaders()
    REMARKS:     
    */
 
-   g_shaderStates.resize(G_NUM_SHADERS);
+   G_SHADER_STATES.resize(G_NUM_SHADERS);
    for (int i = 0; i < G_NUM_SHADERS; ++i) 
    {
       if (G_GL2_COMPATIBLE) 
       {
-         g_shaderStates[i].reset(new ShaderState(G_SHADER_FILES_GL2[i][0],
+         G_SHADER_STATES[i].reset(new ShaderState(G_SHADER_FILES_GL2[i][0],
             G_SHADER_FILES_GL2[i][1]));
       } 
       else 
       {
-         g_shaderStates[i].reset(new ShaderState(G_SHADER_FILES[i][0],
+         G_SHADER_STATES[i].reset(new ShaderState(G_SHADER_FILES[i][0],
             G_SHADER_FILES[i][1]));
       }
    }
@@ -1376,12 +1522,41 @@ static void initGLState()
    RETURNS:		 
    REMARKS:		 
    */
+   
+   if (SF_RAY)
+   {
+      glClearColor(0.0, 0.0, 0.0, 1.0);
+      glViewport(0, 0, g_windowWidth, g_windowHeight);
+      glMatrixMode(GL_PROJECTION);
+      glLoadIdentity();
+      gluOrtho2D(0, g_windowWidth, 0, g_windowHeight); // Upside-Down
+   }   
+   else
+   {
+      glClearColor(128./255., 200./255., 255./255., 0.);
+      glClearDepth(0.);
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+      glPixelStorei(GL_PACK_ALIGNMENT, 1);
+      glCullFace(GL_BACK);
+      glEnable(GL_CULL_FACE);
+      glEnable(GL_DEPTH_TEST);
+      glDepthFunc(GL_GREATER);
+      glReadBuffer(GL_BACK);
+      if (!G_GL2_COMPATIBLE) 
+         glEnable(GL_FRAMEBUFFER_SRGB);
+   }
+   
+}
+/*-----------------------------------------------*/
+static void initGeometry()
+{
+   /*	PURPOSE:		Initialize geometry for the scene 
+      RECEIVES:	 
+      RETURNS:		 
+      REMARKS:		 
+   */
 
-   glClearColor(0.0, 0.0, 0.0, 1.0);
-   glViewport(0, 0, g_windowWidth, g_windowHeight);
-   glMatrixMode(GL_PROJECTION);
-   glLoadIdentity();
-   gluOrtho2D(0, g_windowWidth, 0, g_windowHeight); // Upside-Down
+    initPlane();
 }
 /*-----------------------------------------------*/
 void MySdlApplication::initScene()
@@ -1441,7 +1616,7 @@ void MySdlApplication::initScene2()
    Point boardPosition(0.0, 0.0, 0.0);
    CheckerBoard *checkerBoard = new CheckerBoard(boardPosition);
    g_scene.addRayObject(checkerBoard);
-   boardMap.clear();
+   g_boardMap.clear();
 
    string tmp;
    bool isFinished = false;
@@ -1462,12 +1637,14 @@ void MySdlApplication::initScene2()
             hasAnswered = false;
 
          int type = tmp[0] - 'a';
+         type--;
+         type = (type < 0 ? 5: type);
          if (type >= 0 && type < 6)
          {
             cout << "Please enter the position: (a1-h8)" << endl;
             cin >> tmp;
 
-            boardMap[tmp] = type;
+            g_boardMap[tmp] = type;
          }
          else
             hasAnswered = false;
@@ -1501,7 +1678,7 @@ void MySdlApplication::loadScene()
 {
    map<string, int>::iterator iter;
 
-   for (iter = boardMap.begin(); iter != boardMap.end(); ++iter)
+   for (iter = g_boardMap.begin(); iter != g_boardMap.end(); ++iter)
    {
       string position = iter->first;
       int type = iter->second;
@@ -1562,6 +1739,28 @@ void draw()
    glFlush();
 }
 /*-----------------------------------------------*/
+static void drawThroughShader()
+{
+    // short hand for current shader state
+    const ShaderState& curSS = *G_SHADER_STATES[g_activeShader];
+
+    // build & send proj. matrix to vshader
+    const Matrix4 projmat = makeProjectionMatrix();
+    sendProjectionMatrix(curSS, projmat);
+
+    // use the skyRbt as the eyeRbt
+    const Matrix4 eyeRbt = g_skyRbt;
+    const Matrix4 invEyeRbt = inv(eyeRbt);
+
+    const Matrix4 groundRbt = Matrix4();  // identity
+    Matrix4 MVM = invEyeRbt * groundRbt;
+    // draw plane
+    // ==========
+    MVM = invEyeRbt * g_objectRbt[0];
+    sendGeometry(curSS, MVM);
+    g_plane->draw(curSS);
+}
+/*-----------------------------------------------*/
 void reshape(int newWidth, int newHeight)
    /*
    PURPOSE: To redraw g_scene when  window gets resized.
@@ -1617,14 +1816,18 @@ void MySdlApplication::onRender()
    REMARKS:		 
    */
 
-   // All draw calls go here
-   //glUseProgram(g_shaderStates[g_activeShader]->program);
-   //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-   // clear framebuffer color&depth
+   if (SF_RAY)
+      draw();
+   else
+   {
+      // All draw calls go here
+      glUseProgram(G_SHADER_STATES[g_activeShader]->program);
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear framebuffer color&depth
 
-   draw();
+      drawThroughShader();
+   }
 
-   SDL_GL_SwapWindow(g_display);
+   SDL_GL_SwapWindow(G_DISPLAY);
    checkGlErrors();
 }
 /*-----------------------------------------------*/
@@ -1642,7 +1845,7 @@ int MySdlApplication::onExecute()
    SDL_Event Event;
    while(g_running) 
    {
-      memcpy (kbPrevState, KB_STATE, sizeof( kbPrevState ));
+      memcpy (g_kbPrevState, KB_STATE, sizeof( g_kbPrevState ));
 
       while(SDL_PollEvent(&Event)) 
       {
@@ -1661,9 +1864,9 @@ int MySdlApplication::onExecute()
 bool MySdlApplication::onInit()
 {
    /*	PURPOSE:		Initializes SDL 
-   RECEIVES:	 
-   RETURNS:		 
-   REMARKS:		 
+      RECEIVES:	 
+      RETURNS:		 
+      REMARKS:		 
    */
 
    //if(SDL_Init(SDL_INIT_EVERYTHING) < 0) 
@@ -1671,7 +1874,9 @@ bool MySdlApplication::onInit()
    {
       return false;
    }
-   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+   
+   // TODO Remove
+   //SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
    //SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
 
    /* Turn on double buffering with a 24bit Z buffer.
@@ -1679,15 +1884,15 @@ bool MySdlApplication::onInit()
    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
-   if((g_display = SDL_CreateWindow("Ray Trace",
-      g_initX, g_initY, g_windowWidth, g_windowHeight,
+   if((G_DISPLAY = SDL_CreateWindow("Ray Tracing Fragment Shader",
+      G_INIT_X, G_INIT_Y, g_windowWidth, g_windowHeight,
       SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE)) == NULL) 
    {
       return false;
    }
 
    /* Create our opengl context and attach it to our window */
-   SDL_GLContext maincontext = SDL_GL_CreateContext(g_display);
+   SDL_GLContext maincontext = SDL_GL_CreateContext(G_DISPLAY);
    /* This makes our buffer swap syncronized with the 
    monitor's vertical refresh */
    SDL_GL_SetSwapInterval(1);
@@ -1714,9 +1919,13 @@ bool MySdlApplication::onInit()
       throw runtime_error(
       "Error: does not support OpenGL Shading Language v1.0");
 
-   //initShaders();
-   initScene2();
    initGLState();
+   initScene2();
+   if (!SF_RAY)
+   {
+      initShaders();
+      initGeometry();
+   }
 
    KB_STATE = SDL_GetKeyboardState(NULL);
 
@@ -1726,26 +1935,85 @@ bool MySdlApplication::onInit()
 void MySdlApplication::onEvent(SDL_Event* event) 
 {
    /*	PURPOSE:		Handles SDL events 
-   RECEIVES:	event - SDL Event to be handled 
-   RETURNS:		 
-   REMARKS:		 
+      RECEIVES:	event - SDL Event to be handled 
+      RETURNS:		 
+      REMARKS:		 
    */
 
    Uint32 type = event->type;
 
    if (type == SDL_QUIT)
       g_running = false;
-   /*
    else if (type == SDL_MOUSEBUTTONDOWN)
    mouse(event->button);
    else if (type == SDL_MOUSEBUTTONUP)
    mouse(event->button);
    else if (type == SDL_MOUSEMOTION)
    motion(event->motion.x, event->motion.y);
-   */
    else if (type == SDL_WINDOWEVENT)
       if (event->window.event == SDL_WINDOWEVENT_RESIZED)
          reshape(event->window.data1,event->window.data2);
+}
+/*-----------------------------------------------*/
+void MySdlApplication::mouse(SDL_MouseButtonEvent button)
+{
+   /*	PURPOSE:		Handles SDL events 
+      RECEIVES:	button - Mouse button event
+      RETURNS:		 
+      REMARKS:		 
+   */
+
+    g_mouseClickX = button.x;
+    g_mouseClickY = g_windowHeight - button.y - 1;
+
+    g_mouseLClickButton |= (button.button == SDL_BUTTON_LEFT &&
+                            button.state == SDL_PRESSED);
+    g_mouseRClickButton |= (button.button == SDL_BUTTON_RIGHT &&
+                            button.state == SDL_PRESSED);
+    g_mouseMClickButton |= (button.button == SDL_BUTTON_MIDDLE &&
+                            button.state == SDL_PRESSED);
+
+    g_mouseLClickButton &= !(button.button == SDL_BUTTON_LEFT &&
+                            button.state == SDL_RELEASED);
+    g_mouseRClickButton &= !(button.button == SDL_BUTTON_RIGHT &&
+                             button.state == SDL_RELEASED);
+    g_mouseMClickButton &= !(button.button == SDL_BUTTON_MIDDLE &&
+                             button.state == SDL_RELEASED);
+
+    g_mouseClickDown = g_mouseLClickButton || g_mouseRClickButton ||
+        g_mouseMClickButton;
+}
+/*-----------------------------------------------*/
+void MySdlApplication::motion(const int x, const int y)
+{
+   /*	PURPOSE:		Handles SDL events 
+      RECEIVES:	x - Delta x of mouse movement
+                  y - Delta y of mouse movement
+      RETURNS:		
+      REMARKS:		 
+   */
+    const double dx = x - g_mouseClickX;
+    const double dy = g_windowHeight - y - 1 - g_mouseClickY;
+
+    Matrix4 m;
+    if (g_mouseLClickButton && !g_mouseRClickButton) {
+        // left button down?
+        m = Matrix4::makeXRotation(-dy) * Matrix4::makeYRotation(dx);
+    } else if (g_mouseRClickButton && !g_mouseLClickButton) {
+        // right button down?
+        m = Matrix4::makeTranslation(Cvec3(dx, dy, 0) * 0.01);
+    } else if (g_mouseMClickButton ||
+               (g_mouseLClickButton && g_mouseRClickButton)) {
+        // middle or (left and right) button down?
+        m = Matrix4::makeTranslation(Cvec3(0, 0, -dy) * 0.01);
+    }
+
+    if (g_mouseClickDown) {
+        g_objectRbt[0] *= m; // Simply right-multiply is WRONG
+    }
+
+    g_mouseClickX = x;
+    g_mouseClickY = g_windowHeight - y - 1;
 }
 /*-----------------------------------------------*/
 void MySdlApplication::onCleanup()

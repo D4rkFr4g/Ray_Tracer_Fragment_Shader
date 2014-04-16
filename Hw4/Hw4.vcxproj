@@ -87,10 +87,8 @@
     <ClInclude Include="MySdlApplication.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Shaders\basic-gl2.vshader" />
     <None Include="Shaders\basic-gl3.vshader" />
-    <None Include="Shaders\solid-gl2.fshader" />
-    <None Include="Shaders\solid-gl3.fshader" />
+    <None Include="Shaders\ray-tracer-gl3.fshader" />
     <None Include="TODO.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

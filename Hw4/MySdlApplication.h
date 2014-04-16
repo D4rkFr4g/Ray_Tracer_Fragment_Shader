@@ -13,6 +13,9 @@
 #include <map>
 
 #include "glsupport.h"
+#include "cvec.h"
+#include "matrix4.h"
+#include "geometrymaker.h"
 
 using namespace std;
 
@@ -21,7 +24,7 @@ class MySdlApplication
    private:
       // Globals
       bool g_running;
-      SDL_Window* g_display;
+      SDL_Window* G_DISPLAY;
 
       // Functions
       void keyboard(const char * key);
