@@ -1,15 +1,29 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="glsupport.cpp" />
-    <ClCompile Include="MySdlApplication.cpp" />
+    <ClCompile Include="glsupport.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MySdlApplication.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="cvec.h" />
-    <ClInclude Include="geometrymaker.h" />
-    <ClInclude Include="glsupport.h" />
-    <ClInclude Include="matrix4.h" />
-    <ClInclude Include="MySdlApplication.h" />
+    <ClInclude Include="cvec.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="geometrymaker.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="glsupport.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="matrix4.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MySdlApplication.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="TODO.txt" />
@@ -23,6 +37,12 @@
   <ItemGroup>
     <Filter Include="Shaders">
       <UniqueIdentifier>{2c058fff-8965-4f10-ad43-2e3f30f74aca}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{f955237d-0262-469c-87da-29d1436515ed}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{82aefe67-1d58-4dfa-8054-c30c3feba8fd}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
