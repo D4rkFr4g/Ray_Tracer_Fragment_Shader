@@ -415,7 +415,8 @@ public:
       _n = _u*_v;
 
       //handle last degenerates case by saying we don't intersect
-      if(_n.length() < SMALL_NUMBER) _degenerate = true;
+      if(_n.length() < SMALL_NUMBER) 
+         _degenerate = true;
       else _degenerate = false;
 
       _n.normalize(); 
@@ -426,7 +427,8 @@ public:
 
       _denominator = _uv*_uv - _uu*_vv;
 
-      if( abs(_denominator) < SMALL_NUMBER) _degenerate = true;
+      if( abs(_denominator) < SMALL_NUMBER) 
+         _degenerate = true;
 
    }
 
@@ -532,6 +534,7 @@ class Cylinder : public Shape
 
 public:
    Cylinder(Point p, GLdouble radius, GLdouble height);
+   void intersection(const Line& l, const Point& positionOffset, Intersection& inter); 
 };
 /*-----------------------------------------------*/
 class Cone : public Shape
@@ -992,6 +995,28 @@ Cylinder::Cylinder(Point p, GLdouble radius, GLdouble height)// : Shape(Point(p.
       addRayObject(new Triangle(zero, g_tetrahedronMaterial, points[i], points[j], points[j] + top));
    }
    
+}
+/*-----------------------------------------------*/
+void Cylinder::intersection(const Line& l, const Point& positionOffset, Intersection& inter)
+{
+   /* PURPOSE: used to fill in an Intersection object with information about how the supplied ray
+               intersects with the current Cylinder based on the given positionOffset Point vector.
+      RECEIVES:ray -- ray to intersect with this Triangle
+               positionOffset -- where in the overall g_scene this Triangle lives
+               inter -- Intersection object to fill in with information about the if and where the ray
+               intersects
+      RETURNS: 
+      REMARKS: Degenerate cases handle by saying there is no intersection
+   */
+   /*
+   if(_degenerate)
+   {
+      inter.setIntersect(false);
+      return;
+   }
+   */
+
+
 }
 // Cone Class Implementations
 /*-----------------------------------------------*/
