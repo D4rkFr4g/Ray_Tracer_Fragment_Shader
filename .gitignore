@@ -213,3 +213,7 @@ pip-log.txt
 
 #Mr Developer
 .mr.developer.cfg
+
+#Dll's and Lib's
+*.dll
+*.lib
