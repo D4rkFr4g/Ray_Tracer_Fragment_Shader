@@ -39,17 +39,30 @@ inline void getPlaneVbIbLen(int& vbLen, int& ibLen) {
 
 template<typename VtxOutIter, typename IdxOutIter>
 void makePlane(float size, VtxOutIter vtxIter, IdxOutIter idxIter) {
+ #define DEFV(x, y, z, nx, ny, nz, tu, tv) { \
+	*vtxIter = GenericVertex(x h, y h, z h, \
+	nx, ny, nz, tu, tv, \
+	tan[0], tan[1], tan[2], \
+	bin[0], bin[1], bin[2]); \
+	++vtxIter; \
+}
   float h = size / 2.0;
-  *vtxIter = GenericVertex(    -h, 0, -h, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, -1);
-  *(++vtxIter) = GenericVertex(-h, 0,  h, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, -1);
-  *(++vtxIter) = GenericVertex( h, 0,  h, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, -1);
-  *(++vtxIter) = GenericVertex( h, 0, -h, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, -1);
-  *idxIter = 0;
-  *(++idxIter) = 1;
-  *(++idxIter) = 2;
-  *(++idxIter) = 0;
-  *(++idxIter) = 2;
-  *(++idxIter) = 3;
+  Cvec3f tan(1, 0, 0), bin(0, 1, 0);
+  DEFV(-, -, +, 0, 0, 1, 0, 0); // facing +Z
+  DEFV(+, -, +, 0, 0, 1, 1, 0);
+  DEFV(+, +, +, 0, 0, 1, 1, 1);
+  DEFV(-, +, +, 0, 0, 1, 0, 1);
+#undef DEFV
+
+  for (int v = 0; v < 4; v += 4) {
+	  *idxIter = v;
+	  *++idxIter = v + 1;
+	  *++idxIter = v + 2;
+	  *++idxIter = v;
+	  *++idxIter = v + 2;
+	  *++idxIter = v + 3;
+	  ++idxIter;
+  }
 }
 
 inline void getCubeVbIbLen(int& vbLen, int& ibLen) {

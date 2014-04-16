@@ -10,7 +10,7 @@ Finally, it asks if you would like to add another object.
 If you say yes, you go through the above again, on no, your program should 
 draw the scene using ray-tracing.
 
-- I want your project to do ray-tracing in GPU-land using a fragment shader. 
+Done - I want your project to do ray-tracing in GPU-land using a fragment shader. 
 The geometry which comes to the vertex shader 
 from OpenGL for your project should consist of just two triangles representing 
 the window. 
@@ -38,10 +38,10 @@ Point Breakdown
 - Code well-documented follows SJSU CS guidelines for C++. (Undergrad version) (1pt)
 Done - Code rewritten using SDL	(1pt)
 Done - New user interface as described	(1pt)
-- Vertex shader as described	(1pt)
+Done - Vertex shader as described	(1pt)
 - Scene drawn using ray-tracing in the fragment shader. (1pt) 
-- Spheres, lights, and checker drawn at user given coords (1pt)
-- Objects input by user sent to fragment shader as uniform variable	(1pt)
+Part - Spheres, lights, and checker drawn at user given coords (1pt)
+Part - Objects input by user sent to fragment shader as uniform variable	(1pt)
 - Ray tracing intersections calculated by shader for five primitive types (0.5pt) or (2.5pts)
-- Scene draws correctly under a variety of inputs	(0.5pts)
+Part - Scene draws correctly under a variety of inputs	(0.5pts)
 Total	10pts
