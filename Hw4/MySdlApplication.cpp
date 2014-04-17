@@ -164,7 +164,7 @@ static GLfloat g_Lights[3] = { 0.0, 5.0, 0.0 };
 #define GEOMETRY_STRIDE 6
 //for your code you get this geometry data from user input
 static GLfloat g_geometryData[NUM_SHAPES * GEOMETRY_STRIDE] = 
-	{ SPHERE, -0.2, 0.0, 0.0, 0.0, 0.0 };
+	{ SPHERE, 2.0, 0.1, 0.2, 0.3, 0.0 };
 ///////////////// END OF G L O B A L S ///////////////////////
 
 //-------------- Code to be moved to Shader ---------------//
