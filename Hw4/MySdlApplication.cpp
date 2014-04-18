@@ -41,6 +41,7 @@ struct ShaderState
    // Handles to uniform variables
    GLint h_uProjMatrix;
    GLint h_uModelViewMatrix;
+   GLint h_uInverseModelViewMatrix;
 	GLint h_uEyePosition;
 	GLint h_uGeometry;
 	GLint h_uLights;
@@ -65,6 +66,7 @@ struct ShaderState
       // Retrieve handles to uniform variables
       h_uProjMatrix = safe_glGetUniformLocation(h, "uProjMatrix");
       h_uModelViewMatrix = safe_glGetUniformLocation(h, "uModelViewMatrix");
+      h_uInverseModelViewMatrix = safe_glGetUniformLocation(h, "uInverseModelViewMatrix");
 		h_uGeometry = safe_glGetUniformLocation(h, "uGeometry");
 		h_uEyePosition = safe_glGetUniformLocation(h, "uEyePosition");
 		h_uLights = safe_glGetUniformLocation(h, "uLights");
@@ -1459,6 +1461,10 @@ static void sendGeometry(const ShaderState& curSS,
     GLfloat glmatrix[16];
     MVM.writeToColumnMajorMatrix(glmatrix); // send MVM
     safe_glUniformMatrix4fv(curSS.h_uModelViewMatrix, glmatrix);
+
+    GLfloat inverseglmatrix[16];
+    inv(MVM).writeToColumnMajorMatrix(inverseglmatrix);
+    safe_glUniformMatrix4fv(curSS.h_uInverseModelViewMatrix, inverseglmatrix);
 
 	glUniform1fv(curSS.h_uEyePosition, 3, g_eyePosition);
 	glUniform1fv(curSS.h_uLights, NUM_LIGHTS * LIGHT_STRIDE, g_geometryData);

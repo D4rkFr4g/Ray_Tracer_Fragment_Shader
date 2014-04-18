@@ -8,6 +8,7 @@ int GEOMETRY_STRIDE = 6;
 
 uniform float uLights[3]; // Should be NUM_LIGHTS * LIGHT_STRIDE
 uniform float uGeometry[6]; // should be GEOMETRY_STRIDE*NUM_SHAPES
+uniform mat4 uInverseModelViewMatrix;
 
 const double SMALL_NUMBER = .0001;
 const int TETRAHEDRON = 0;
@@ -25,6 +26,7 @@ const vec3 LOOK_AT_VECTOR = vec3(0.0, 0.0, -160.0);
 
 vec3 CAMERA = vec3(uEyePosition[0], uEyePosition[1], uEyePosition[2]);
 
+in vec3 gPosition;
 in vec3 vPosition;
 out vec4 fragColor;
 /*-----------------------------------------------*/
@@ -382,13 +384,14 @@ vec4 ORD(inout RayBouncer ray, int bounces)
 /*-----------------------------------------------*/
 void main() 
 {
-	vec3 eyePos = vec3(uEyePosition[0], uEyePosition[1], uEyePosition[2]);
-	//this demonstrates a call to a function in a shader
-   
+   vec3 eyePos = vec3(uEyePosition[0], uEyePosition[1], uEyePosition[2]);
+   //Convert back to world coordinates
+   vec3 wPosition = vec3(uInverseModelViewMatrix * vec4(gPosition, 1.0));
+
    RayBouncer ray;
    createRayBouncer(ray);
    ray.startPt = eyePos;
-   ray.endPt = vPosition;
+   ray.endPt = vec3(wPosition);
 
    /*
    fragColor = outgoingRadianceDepth1(eyePos, vPosition) 
