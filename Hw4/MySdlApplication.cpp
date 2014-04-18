@@ -164,7 +164,7 @@ static GLfloat g_Lights[3] = { 0.0, 5.0, 0.0 };
 #define GEOMETRY_STRIDE 6
 //for your code you get this geometry data from user input
 static GLfloat g_geometryData[NUM_SHAPES * GEOMETRY_STRIDE] = 
-	{ SPHERE, 2.0, 0.1, 0.2, 0.3, 0.0 };
+	{ SPHERE, 0.5, 0.1, 0.2, 0.3, 0.0 };
 ///////////////// END OF G L O B A L S ///////////////////////
 
 //-------------- Code to be moved to Shader ---------------//
@@ -1250,6 +1250,7 @@ void rayTraceRay(Shape& g_scene, vector<Light> lights, const Line& ray, Point& c
    Intersection intersection;
    g_scene.intersection(ray, Point(0.0, 0.0, 0.0), intersection);
 
+   // If ray doesn't intersect with the sphere containing the scene then return
    if(!intersection.intersects()) return;
 
    Point pt = intersection.point();
@@ -1270,6 +1271,11 @@ void rayTraceRay(Shape& g_scene, vector<Light> lights, const Line& ray, Point& c
 
       if(!shadowIntersection.intersects() || !shadowIntersection.material().transparency().isZero())
       {
+         /*
+         Point & Point (dot)
+         Point % Point (*)
+         Point * Point (cross)
+         */
          lColor = attenuation(shadowRay.length())*lights[i].color();
          color += (material.ambient()% lColor) +
             abs(intersection.normal() & shadowRay.direction())*(material.diffuse()% lColor) +
@@ -1920,8 +1926,9 @@ bool MySdlApplication::onInit()
       "Error: does not support OpenGL Shading Language v1.0");
 
    initGLState();
-   initScene2();
-   if (!SF_RAY)
+   if (SF_RAY) //TODO remove this after shapes are sent to shader
+      initScene2();
+   else
    {
       initShaders();
       initGeometry();
