@@ -14,7 +14,7 @@
 
 //   CONSTANTS
 #define SF_RAY 0
-enum { TETRAHEDRON, CUBE, SPHERE, CYLINDER, CONE, LIGHT };
+enum { TETRAHEDRON, CUBE, SPHERE, CYLINDER, CONE, CHECKERBOARD, LIGHT };
 static const bool G_GL2_COMPATIBLE = false;
 static const unsigned char* KB_STATE = NULL;
 static const float G_FRUST_MIN_FOV = 60.0;  //A minimal of 60 degree field of view
@@ -157,8 +157,9 @@ static Cvec3f g_objectColors[1] = {Cvec3f(1, 0, 0)};
    SPHERE: type, radius, c_x, c_y, c_z, dummy
    CYLINDER: type, radius, height, c_x, c_y, c_z
    CONE: type, radius, height, c_x, c_y, c_z
+   CHECKERBOARD: type, edge_length, c_x, c_y, c_z, squares
  */
-static GLfloat g_eyePosition[3] = { 0.0, 0.0, 1.0};
+static GLfloat g_eyePosition[3] = { 0, 1000, 3000};
 #define NUM_LIGHTS 1
 #define LIGHT_STRIDE 3
 static GLfloat g_Lights[3] = { 0.0, 5.0, 0.0 };
@@ -166,7 +167,11 @@ static GLfloat g_Lights[3] = { 0.0, 5.0, 0.0 };
 #define GEOMETRY_STRIDE 6
 //for your code you get this geometry data from user input
 static GLfloat g_geometryData[NUM_SHAPES * GEOMETRY_STRIDE] = 
-	{ SPHERE, 0.5, 0.1, 0.2, 0.3, 0.0 };
+	//{ SPHERE, 0.5, 0.1, 0.2, 0.3, 0.0 };
+   { CHECKERBOARD, 0.5, 0, 0, 0, 8 };
+//for your code you get this light data from user input
+static GLfloat g_lightData[NUM_LIGHTS * LIGHT_STRIDE] =
+   {0.0, 5.0, 0.0};
 ///////////////// END OF G L O B A L S ///////////////////////
 
 //-------------- Code to be moved to Shader ---------------//
@@ -1467,7 +1472,7 @@ static void sendGeometry(const ShaderState& curSS,
     safe_glUniformMatrix4fv(curSS.h_uInverseModelViewMatrix, inverseglmatrix);
 
 	glUniform1fv(curSS.h_uEyePosition, 3, g_eyePosition);
-	glUniform1fv(curSS.h_uLights, NUM_LIGHTS * LIGHT_STRIDE, g_geometryData);
+	glUniform1fv(curSS.h_uLights, NUM_LIGHTS * LIGHT_STRIDE, g_lightData);
 	glUniform1fv(curSS.h_uGeometry, NUM_SHAPES * GEOMETRY_STRIDE, g_geometryData);
 }
 

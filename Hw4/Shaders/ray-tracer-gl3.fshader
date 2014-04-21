@@ -9,6 +9,8 @@ int GEOMETRY_STRIDE = 6;
 uniform float uLights[3]; // Should be NUM_LIGHTS * LIGHT_STRIDE
 uniform float uGeometry[6]; // should be GEOMETRY_STRIDE*NUM_SHAPES
 uniform mat4 uInverseModelViewMatrix;
+uniform mat4 uProjMatrix;
+uniform mat4 uModelViewMatrix;
 
 const double SMALL_NUMBER = .0001;
 const int TETRAHEDRON = 0;
@@ -16,19 +18,27 @@ const int CUBE = 1;
 const int SPHERE = 2;
 const int CYLINDER = 3;
 const int CONE = 4;
+const int CHECKERBOARD = 5;
 const double ATTENUATION_FACTOR = 100000; 
 
 const vec3 WHITE = vec3(1.0);
 const vec3 BLACK = vec3(0.0);
 const vec3 RED = vec3(1.0, 0.0, 0.0);
+const vec4 dRED = vec4(1, 0, 0,1);
+const vec4 dGREEN = vec4(0, 1, 0,1);
+const vec4 dBLUE = vec4(0, 0, 1,1);
 const vec3 UP_VECTOR = vec3(0.0, 1.0, 0.0);
 const vec3 LOOK_AT_VECTOR = vec3(0.0, 0.0, -160.0);
 
-vec3 CAMERA = vec3(uEyePosition[0], uEyePosition[1], uEyePosition[2]);
+const unsigned int NUM_SQUARES = 8; //number of squares wide our chess board is
 
 in vec3 gPosition;
 in vec3 vPosition;
 out vec4 fragColor;
+
+//vec3 CAMERA = vec3(uEyePosition[0], uEyePosition[1], uEyePosition[2]);
+vec4 debugColor = vec4(0,0,0,1);
+
 /*-----------------------------------------------*/
 // structure to help with psuedo recursion
 struct RayBouncer
@@ -45,8 +55,8 @@ struct RayBouncer
 /*-----------------------------------------------*/
 struct Light
 {
-   vec3 color;
    vec3 position;
+   vec3 color;
 };
 
 struct Line
@@ -83,6 +93,17 @@ struct Shape
    vec3 pos;
    float height;
    Material material;
+   int squares;
+   double board_half_size;
+   double square_edge_size;
+};
+/*-----------------------------------------------*/
+struct Triangle
+{
+   vec3 v0;
+   vec3 v1;
+   vec3 v2;
+   vec3 n;
 };
 /*-----------------------------------------------*/
 
@@ -100,13 +121,16 @@ Material cubeMaterial = Material(.1*RED, .4*RED, RED, BLACK, 1);
    SPHERE: type, radius, c_x, c_y, c_z, dummy
    CYLINDER: type, radius, c_x, c_y, c_z, height
    CONE: type, radius, c_x, c_y, c_z, height
+   CHECKERBOARD: type, edge_length, c_x, c_y, c_z, squares
  */
 float ATTENUATION = 0.3;
 /*-----------------------------------------------*/
+
 double length(vec3 v)
 {
    return sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
 }
+
 /*-----------------------------------------------*/
 double length(Line l)
 {
@@ -122,13 +146,23 @@ bool isZero(vec3 v)
 vec3 direction(Line line)
 {
    vec3 p = line.endPt - line.startPt;
-   normalize(p);
+   p = normalize(p);
    return p;
 }
 
 double attenuation(double distance)
 {
    return ATTENUATION_FACTOR/(ATTENUATION_FACTOR + distance*distance);
+}
+/*-----------------------------------------------*/
+void createIntersection(inout Intersection inter)
+{
+   inter.intersects = false;
+   inter.point = vec3(0,0,0);
+   inter.normal = vec3(0,0,0);
+   inter.material = blackSquare;
+   inter.reflectedRay = Line(vec3(0),vec3(0));
+   inter.transmittedRay = Line(vec3(0),vec3(0));
 }
 /*-----------------------------------------------*/
 void intersectionCircle(Shape circle, inout Line ray, inout Intersection inter)
@@ -141,7 +175,7 @@ void intersectionCircle(Shape circle, inout Line ray, inout Intersection inter)
    if (circle.radius > 0)
    {
       double uDeltaP = dot(u,deltaP);
-      double discriminant = uDeltaP*uDeltaP - (deltaP * deltaP) + circle.radius*circle.radius; //dot(deltaP, deltaP)
+      double discriminant = uDeltaP*uDeltaP - dot(deltaP, deltaP) + circle.radius*circle.radius; //dot(deltaP, deltaP)
       double s = uDeltaP - sqrt(discriminant);
 
       if (discriminant < 0 || abs(s) < SMALL_NUMBER)
@@ -189,10 +223,174 @@ void intersectionCircle(Shape circle, inout Line ray, inout Intersection inter)
    }
 }
 /*-----------------------------------------------*/
+void intersectionTriangle(Triangle triangle, inout Line ray, inout Intersection inter)
+{
+   //get coordinates of triangle given our position
+   //vec3 position = _position + positionOffset;
+   vec3 v0 = triangle.v0;
+   vec3 v1 = triangle.v1;
+   vec3 v2 = triangle.v2;
+   
+   vec3 _u = v1 - v0;
+   vec3 v = v2 - v0;
+   vec3 n = cross(_u,v);
+
+   //handle last degenerates case by saying we don't intersect
+   if(length(n) < SMALL_NUMBER) 
+      return;
+
+   n = normalize(n);
+
+   double uv = dot(_u,v);
+   double uu = dot(_u,_u);
+   double vv = dot(v,v);
+   
+   double denominator = (uv*uv) - (uu*vv);
+
+   if( abs(denominator) < SMALL_NUMBER)
+         return;
+
+   vec3 p0 = ray.startPt;
+   vec3 p1 = ray.endPt;
+   vec3 diffP = p1 - p0;
+   double ndiffP = dot(n, diffP);
+
+   //handle another degenerate case by saying we don't intersect
+   if( abs(ndiffP) < SMALL_NUMBER)
+   {
+      inter.intersects = false;
+      return;
+   }
+   
+   double m = dot(n, (v0 - p0))/ dot(n, diffP);
+   if( m < SMALL_NUMBER) //if m is negative then we don't intersect
+   {
+      inter.intersects = false;
+      return;
+   }
+
+   vec3 p = p0 + vec3(diffP.x*m, diffP.y*m, diffP.z*m); //intersection point with plane
+
+   vec3 w = p - v0;
+
+   //Now check if in triangle   
+    
+   double wu = dot(w, _u);
+   double wv = dot(w, v);
+
+   double s = (uv*wv - vv*wu)/denominator;
+   double t = (uv*wu - uu*wv)/denominator;
+
+   if( s >= 0 && t >=0 && s + t <= 1) // intersect
+   {
+      diffP = normalize(diffP);// now u is as in the book
+      vec3 u = diffP;
+
+      vec3 r = reflect(u,n);
+      Line reflected = Line(p, p + r);
+
+      /*
+      //Transmitted vector calculated using thin lens equations from book
+      double refractionRatio = material.refraction();
+
+      Point t(0.0, 0.0, 0.0);
+
+      GLdouble cosThetai = u & _n;
+      GLdouble modulus = 1 - refractionRatio*refractionRatio*( 1- cosThetai*cosThetai);
+
+      if( modulus > 0)
+      {
+         GLdouble cosThetar = sqrt(modulus);
+         t = refractionRatio*u - ( cosThetar + refractionRatio*cosThetai)*_n;
+      }
+      */
+
+      Line transmitted = Line(vec3(0), vec3(0));
+      Material mat = whiteSquare;
+      
+      inter = Intersection(true, p, n, mat, reflected, transmitted);
+   }
+   else // don't intersect
+   {
+      inter.intersects = false;
+   }
+}
+/*-----------------------------------------------*/
+void intersectionSquare(Shape square, inout Line ray, inout Intersection inter)
+{
+   double halfSize = square.board_half_size;
+   vec3 p = square.pos;
+   vec3 v0 = p + vec3(-halfSize, 0, -halfSize);
+   vec3 v1 = p + vec3( halfSize, 0, -halfSize);
+   vec3 v2 = p + vec3( halfSize, 0,  halfSize);
+   vec3 v3 = p + vec3(-halfSize, 0,  halfSize);
+   
+   // Convert wCoords to camCoords
+   /*
+   v0 = vec3(uModelViewMatrix * vec4(v0,1));
+   v1 = vec3(uModelViewMatrix * vec4(v1,1));
+   v2 = vec3(uModelViewMatrix * vec4(v2,1));
+   v3 = vec3(uModelViewMatrix * vec4(v3,1));
+   */
+
+   Triangle t0 = Triangle(v0, v1, v2, UP_VECTOR);
+   Triangle t1 = Triangle(v0, v2, v3, UP_VECTOR);
+
+   Intersection inter0;
+   Intersection inter1;
+   createIntersection(inter0);
+   createIntersection(inter1);
+   
+   intersectionTriangle(t0, ray, inter0);
+   intersectionTriangle(t1, ray, inter1);
+
+   if (inter0.intersects)
+   {
+      inter = inter0;
+   }
+   else if (inter1.intersects)
+   {
+      inter = inter1;
+   }
+   else
+   {
+      inter.intersects = false;
+   }
+}
+/*-----------------------------------------------*/
+void intersectionCheckerBoard(Shape board, inout Line ray, inout Intersection inter)
+{   
+   
+   intersectionSquare(board, ray, inter);
+
+   if(inter.intersects)
+   {
+      double edge = 5;
+      //vec3 boardOffset = vec3(uModelViewMatrix * vec4(board.board_half_size,0,board.board_half_size,1));
+      //vec3 p = inter.point - board.pos + boardOffset;
+      
+      vec3 p = inter.point - board.pos + vec3(board.board_half_size, 0, board.board_half_size);
+      
+      //debugColor = vec4(inter.point.x,0,0,1);
+      
+      //int squareSum = int(p.x/(1/board.square_edge_size)) + int(p.z/(1/board.square_edge_size));
+      int squareSum = int(p.x/(board.square_edge_size)) + int(p.z/(board.square_edge_size));
+      //int squareSum = int(p.x/edge) + int(p.z/edge);
+
+      if((squareSum & 1) == 0)
+         inter.material = whiteSquare;
+      else
+         inter.material = blackSquare;
+   }
+
+}
+/*-----------------------------------------------*/
 void intersection(Shape shape, inout Line ray, inout Intersection inter)
 {
    if (shape.type == SPHERE)
       intersectionCircle(shape, ray, inter);
+   else if (shape.type == CHECKERBOARD)
+      intersectionCheckerBoard(shape, ray, inter);
    else  // Remove once rest are finished
       intersectionCircle(shape, ray, inter);
 }
@@ -205,6 +403,9 @@ void createShape(inout Shape shape, int index)
    vec3 pos;
    float height;
    Material material;
+   int squares = 0;
+   double board_half_size = 0;
+   double square_edge_size = 0;
 
    if (uGeometry[index] == SPHERE)
    {
@@ -213,6 +414,15 @@ void createShape(inout Shape shape, int index)
       pos = vec3(uGeometry[++index], uGeometry[++index], uGeometry[++index]);
       height = 0;
       material = sphereMaterial;
+   }
+   else if (uGeometry[index] == CHECKERBOARD)
+   {
+      type = CHECKERBOARD;
+      edge = uGeometry[++index];
+      pos = vec3(uGeometry[++index], uGeometry[++index], uGeometry[++index]);
+      squares = int(uGeometry[++index]);
+      board_half_size = edge / 2;
+      square_edge_size = edge / squares;
    }
    else // Remove later after all are defined
    {
@@ -223,7 +433,7 @@ void createShape(inout Shape shape, int index)
       material = sphereMaterial;
    }
 
-   shape = Shape(type, radius, edge, pos, height, material);
+   shape = Shape(type, radius, edge, pos, height, material, squares, board_half_size, square_edge_size);
 }
 /*-----------------------------------------------*/
 void createRayBouncer(inout RayBouncer ray)
@@ -238,21 +448,25 @@ void createRayBouncer(inout RayBouncer ray)
 /*-----------------------------------------------*/
 void ORD(inout RayBouncer ray)
 {
+   vec4 tmp; 
+
    if (ray.isBouncing)
    {
       Line rayLine = Line(ray.startPt, ray.endPt);
       ray.bounces++;
-      vec4 tmp;   
 
       double minDistance = -1.0;
       double distanceTmp;
       Intersection inter;
+      createIntersection(inter);
 
       // Find closest intersection point
-      int i = 0;
+      //int i = 0;
       for(int i = 0; i < NUM_SHAPES * GEOMETRY_STRIDE; i += GEOMETRY_STRIDE)
       {
          Intersection interTmp;
+         createIntersection(interTmp);
+
          Shape shape;
          createShape(shape, i);
 
@@ -272,7 +486,10 @@ void ORD(inout RayBouncer ray)
       }
 
       if (!inter.intersects)
+      {
+         //debugColor = vec4(0,0,1,1);
          return;
+      }
 
       vec3 pt = inter.point;
       Material material = inter.material;
@@ -289,13 +506,17 @@ void ORD(inout RayBouncer ray)
          double minDistance = -1.0;
          double distanceTmp;
          Intersection shadowIntersection;
+         createIntersection(shadowIntersection);
 
          Light light = Light(vec3(uLights[i], uLights[i+1], uLights[i+2]), WHITE);
+         
          shadowRay = Line(pt, light.position);
       
          for(int i = 0; i < NUM_SHAPES * GEOMETRY_STRIDE; i += GEOMETRY_STRIDE)
          {
             Intersection shadowInterTmp;
+            createIntersection(shadowInterTmp);
+
             Shape shape;
             createShape(shape, i);
 
@@ -342,35 +563,38 @@ void ORD(inout RayBouncer ray)
          ray.endPt = transmittedRay.endPt;
          ray.transparency = material.transparency;
       }
+      else
+         ray.isBouncing = false;
       /*
       if(!isZero(opacity))
       {
          // Would need a new function unfortunately to mimick recursion
       }
       */
-	
+      /*
       //////////////////////////////////////////////////////////////////
 	   //dummy code till above implemented
-      float delta = 0.05 * (ray.bounces - 1);
-	   if(ray.endPt.x * ray.endPt.x + ray.endPt.y * ray.endPt.y < (0.2 - delta)) 
+      if (!ray.isBouncing)
       {
-         float colorDelta = 0.2 * (ray.bounces - 1);
-         vec4 color = vec4(colorDelta, colorDelta, colorDelta, colorDelta); 
-         tmp = vec4(0.5, 0.5, 0.5, 0.5) + color;
-      }
-	   else
-		   tmp = vec4(0.0, 0.0, 0.0, 0.0); 
+         float delta = 0.05 * ray.bounces;
+	      if(ray.endPt.x * ray.endPt.x + ray.endPt.y * ray.endPt.y < (0.2 - delta)) 
+         {
+            float colorDelta = 0.2 * (ray.bounces);
+            vec4 color = vec4(colorDelta, colorDelta, colorDelta, colorDelta); 
+            tmp = vec4(0.5, 0.5, 0.5, 0.5) + color;
+         }
+	      else
+		      tmp = vec4(0.0, 0.0, 0.0, 0.0); 
 	
-      if (ray.bounces > 1)
-         tmp *= ATTENUATION;
+         if (ray.bounces > 1)
+            tmp *= ATTENUATION;
 
-      // Update ray fields
-      ray.color += tmp;
-      /*
-      ray.startRay = ray.endRay;
-      ray.endRay = Normal Bounce Ray
+         // Update ray fields
+         ray.color += tmp;
+      }
+      else
+         ray.color = vec4(0,1,0,1);
       */
-   
    }
 }
 /*-----------------------------------------------*/
@@ -385,19 +609,23 @@ vec4 ORD(inout RayBouncer ray, int bounces)
 void main() 
 {
    vec3 eyePos = vec3(uEyePosition[0], uEyePosition[1], uEyePosition[2]);
-   //Convert back to world coordinates
-   vec3 wPosition = vec3(uInverseModelViewMatrix * vec4(gPosition, 1.0));
 
    RayBouncer ray;
    createRayBouncer(ray);
    ray.startPt = eyePos;
-   ray.endPt = vec3(wPosition);
+   //ray.endPt = gPosition;
+   ray.endPt = vPosition;
 
    /*
    fragColor = outgoingRadianceDepth1(eyePos, vPosition) 
 	    + ATTENUATION * outgoingRadianceDepth2(eyePos, vPosition);
    */
    
-   fragColor = ORD(ray,3); // outgoingRadianceDepth
+   fragColor = ORD(ray,1); // outgoingRadianceDepth
+
+   if (debugColor != vec4(0,0,0,1))
+      fragColor = debugColor;
+   
+      
 }
 /*-----------------------------------------------*/
