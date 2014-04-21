@@ -106,6 +106,14 @@ struct Triangle
    vec3 n;
 };
 /*-----------------------------------------------*/
+struct Side
+{
+   vec3 v0;
+   vec3 v1;
+   vec3 v2;
+   vec3 v3;
+};
+/*-----------------------------------------------*/
 
 Material whiteSquare = Material(.1*WHITE, .5*WHITE, WHITE, BLACK, 1);
 Material blackSquare = Material(BLACK, .1*WHITE, BLACK, BLACK, 1);
@@ -153,6 +161,18 @@ vec3 direction(Line line)
 double attenuation(double distance)
 {
    return ATTENUATION_FACTOR/(ATTENUATION_FACTOR + distance*distance);
+}
+/*-----------------------------------------------*/
+void distanceCompare(inout double minDistance, inout Intersection inter, Intersection interTmp, Line ray) 
+{
+   vec3 directionCur = inter.point - ray.startPt;
+   double distanceTmp = length(directionCur);
+
+   if (distanceTmp < minDistance || minDistance < 0.0)
+   {
+      minDistance = distanceTmp;
+      inter = interTmp;
+   }
 }
 /*-----------------------------------------------*/
 void createIntersection(inout Intersection inter)
@@ -371,8 +391,6 @@ void intersectionCheckerBoard(Shape board, inout Line ray, inout Intersection in
       
       vec3 p = inter.point - board.pos + vec3(board.board_half_size, 0, board.board_half_size);
       
-      //debugColor = vec4(inter.point.x,0,0,1);
-      
       //int squareSum = int(p.x/(1/board.square_edge_size)) + int(p.z/(1/board.square_edge_size));
       int squareSum = int(p.x/(board.square_edge_size)) + int(p.z/(board.square_edge_size));
       //int squareSum = int(p.x/edge) + int(p.z/edge);
@@ -385,23 +403,265 @@ void intersectionCheckerBoard(Shape board, inout Line ray, inout Intersection in
 
 }
 /*-----------------------------------------------*/
+void intersectionTetrahedron(Shape tetrahedron, inout Line ray, inout Intersection inter)
+{
+   double halfEdge = tetrahedron.edge / 2;
+   vec3 pos = tetrahedron.pos;
+   vec3 n = vec3(0,0,0);
+
+   Triangle t0 = Triangle(pos + vec3(-halfEdge, -halfEdge, -halfEdge), 
+      pos + vec3(halfEdge, -halfEdge, -halfEdge), 
+      pos + vec3(-halfEdge, -halfEdge, halfEdge), n);
+   Triangle t1 = Triangle(pos + vec3(-halfEdge, -halfEdge, -halfEdge), 
+      pos + vec3(-halfEdge, -halfEdge, halfEdge), 
+      pos + vec3(-halfEdge, halfEdge, -halfEdge), n);
+   Triangle t2 = Triangle(pos + vec3(-halfEdge, -halfEdge, -halfEdge), 
+      pos + vec3(-halfEdge, halfEdge, -halfEdge), 
+      pos + vec3(-halfEdge, -halfEdge, halfEdge), n);
+   Triangle t3 = Triangle(pos + vec3(-halfEdge, -halfEdge, halfEdge), 
+      pos + vec3(halfEdge, -halfEdge, -halfEdge), 
+      pos + vec3(-halfEdge, halfEdge, -halfEdge), n);
+
+   Intersection interT0;
+   Intersection interT1;
+   Intersection interT2;
+   Intersection interT3;
+   createIntersection(interT0);
+   createIntersection(interT1);
+   createIntersection(interT2);
+   createIntersection(interT3);
+   
+   intersectionTriangle(t0, ray, interT0);
+   intersectionTriangle(t1, ray, interT1);
+   intersectionTriangle(t2, ray, interT2);
+   intersectionTriangle(t3, ray, interT3);
+   
+   // When multiple intersections check distance for closest
+   double minDistance = -1;
+   double distanceTmp = 0;
+
+   if (interT0.intersects)
+      distanceCompare(minDistance, inter, interT0, ray);
+   if (interT1.intersects)
+      distanceCompare(minDistance, inter, interT1, ray);
+   if (interT2.intersects)
+      distanceCompare(minDistance, inter, interT2, ray);
+   if (interT3.intersects)
+      distanceCompare(minDistance, inter, interT3, ray);
+
+   inter.material = tetrahedron.material;
+}
+/*-----------------------------------------------*/
+void intersectionPlane(vec3 v0, vec3 n, Line ray, inout Intersection inter)
+{
+   vec3 p0 = ray.startPt;
+   vec3 p1 = ray.endPt;
+   vec3 diffP = p1 - p0;
+   double ndiffP = dot(n, diffP);
+   
+   //handle another degenerate case by saying we don't intersect
+   if( abs(ndiffP) < SMALL_NUMBER)
+   {
+      inter.intersects = false;
+      return;
+   } 
+
+   double m = dot(n, (v0 - p0))/ dot(n, diffP);
+
+   if( m < SMALL_NUMBER) //if m is negative thenwe don't intersect
+   {
+      inter.intersects = false;
+      return;
+   }
+   vec3 p = p0 + vec3(diffP.x*m, diffP.y*m, diffP.z*m); //intersection point with plane
+}
+/*-----------------------------------------------*/
+void inSide(inout Intersection inter, Side side)
+{
+   vec3 p = inter.point;
+
+   //Find min maxs
+   double minX, maxX;
+   double minY, maxY;
+   double minZ, maxZ;
+
+   minX = min(side.v0.x, min(side.v1.x, min(side.v2.x, side.v3.x)));
+   maxX = max(side.v0.x, max(side.v1.x, max(side.v2.x, side.v3.x)));
+   minY = min(side.v0.y, min(side.v1.y, min(side.v2.y, side.v3.y)));
+   maxY = max(side.v0.y, max(side.v1.y, max(side.v2.y, side.v3.y)));
+   minZ = min(side.v0.z, min(side.v1.z, min(side.v2.z, side.v3.z)));
+   maxZ = max(side.v0.z, max(side.v1.z, max(side.v2.z, side.v3.z)));
+
+   if (p.x < minX || p.x > maxX)
+      inter.intersects = false;
+   if (p.y < minY || p.y > maxY)
+      inter.intersects = false;
+   if (p.z < minZ || p.z > maxZ)
+      inter.intersects = false;
+}
+/*-----------------------------------------------*/
+void intersectionCube(Shape cube, inout Line ray, inout Intersection inter)
+{
+   double halfEdge = cube.edge / 2;
+   vec3 pos = cube.pos;
+   vec3 n = vec3(0,0,0);
+   vec3 p = vec3(0,0,0);
+
+   Side xP = Side(pos + vec3(halfEdge, -halfEdge, -halfEdge), 
+      pos + vec3(halfEdge, halfEdge, -halfEdge), 
+      pos + vec3(halfEdge, halfEdge, halfEdge), 
+      pos + vec3(halfEdge, -halfEdge, halfEdge));
+   Side xN = Side(pos + vec3(-halfEdge, -halfEdge, -halfEdge), 
+      pos + vec3(-halfEdge, halfEdge, -halfEdge), 
+      pos + vec3(-halfEdge, halfEdge, halfEdge), 
+      pos + vec3(-halfEdge, -halfEdge, halfEdge));
+   Side yP = Side(pos + vec3(-halfEdge, halfEdge, -halfEdge), 
+      pos + vec3(halfEdge, halfEdge, -halfEdge), 
+      pos + vec3(halfEdge, halfEdge, halfEdge), 
+      pos + vec3(-halfEdge, halfEdge, halfEdge));
+   Side yN = Side(pos + vec3(-halfEdge, -halfEdge, -halfEdge), 
+      pos + vec3(halfEdge, -halfEdge, -halfEdge), 
+      pos + vec3(halfEdge, -halfEdge, halfEdge), 
+      pos + vec3(-halfEdge, -halfEdge, halfEdge));
+   Side zP = Side(pos + vec3(-halfEdge, -halfEdge, halfEdge), 
+      pos + vec3(halfEdge, -halfEdge, halfEdge), 
+      pos + vec3(halfEdge, halfEdge, halfEdge), 
+      pos + vec3(-halfEdge, halfEdge, halfEdge));
+   Side zN = Side(pos + vec3(-halfEdge, -halfEdge, -halfEdge), 
+      pos + vec3(halfEdge, -halfEdge, -halfEdge), 
+      pos + vec3(halfEdge, halfEdge, -halfEdge), 
+      pos + vec3(-halfEdge, halfEdge, -halfEdge));
+
+   // +z Plane
+   Intersection interZp;
+   createIntersection(interZp);
+   n = vec3(0,0,1);
+   p = pos + vec3(-halfEdge, -halfEdge, halfEdge);
+   intersectionPlane(p, n, ray, interZp);
+   if (interZp.intersects)
+      inSide(interZp, zP);
+
+   // -z Plane
+   Intersection interZn;
+   createIntersection(interZn);
+   n = vec3(0,0,-1);
+   p = pos + vec3(-halfEdge, -halfEdge, -halfEdge);
+   intersectionPlane(p, n, ray, interZn);
+   if (interZn.intersects)
+      inSide(interZn, zN);
+
+   // +x Plane
+   Intersection interXp;
+   createIntersection(interXp);
+   n = vec3(1,0,0);
+   p = pos + vec3(halfEdge, -halfEdge, -halfEdge);
+   intersectionPlane(p, n, ray, interXp);
+   if (interXp.intersects)
+      inSide(interXp, xP);
+
+   // -x Plane
+   Intersection interXn;
+   createIntersection(interXn);
+   n = vec3(-1,0,0);
+   p = pos + vec3(-halfEdge, -halfEdge, -halfEdge);
+   intersectionPlane(p, n, ray, interXn);
+   if (interXn.intersects)
+      inSide(interXn, xN);
+
+   // +y Plane
+   Intersection interYp;
+   createIntersection(interYp);
+   n = vec3(0,1,0);
+   p = pos + vec3(-halfEdge, halfEdge, -halfEdge);
+   intersectionPlane(p, n, ray, interYp);
+   if (interYp.intersects)
+      inSide(interYp, yP);
+
+   // -y Plane
+   Intersection interYn;
+   createIntersection(interYn);
+   n = vec3(0,-1,0);
+   p = pos + vec3(-halfEdge, -halfEdge, -halfEdge);
+   intersectionPlane(p, n, ray, interYn);
+   if (interYn.intersects)
+      inSide(interYn, yN);
+
+   double minDistance = -1;
+   double distanceTmp = 0;
+   
+   // When multiple intersections check distance for closest
+   if (interZp.intersects)
+      distanceCompare(minDistance, inter, interZp, ray);
+   if (interZn.intersects)
+      distanceCompare(minDistance, inter, interZn, ray);
+   if (interXp.intersects)
+      distanceCompare(minDistance, inter, interXp, ray);
+   if (interXn.intersects)
+      distanceCompare(minDistance, inter, interXn, ray);
+   if (interYp.intersects)
+      distanceCompare(minDistance, inter, interYp, ray);
+   if (interYn.intersects)
+      distanceCompare(minDistance, inter, interYn, ray);
+
+   inter.material = cube.material;
+}
+/*-----------------------------------------------*/
+void intersectionCylinder(Shape cylinder, inout Line ray, inout Intersection inter)
+{
+   Intersection interTop;
+   Intersection interBottom;
+   Intersection interSide;
+   createIntersection(interTop);
+   createIntersection(interBottom);
+   createIntersection(interSide);
+
+   vec3 p = cylinder.pos;
+
+   // Top
+   double delta = (ray.startPt.z - p.z) / ray.endPt.z;
+   vec3 iP = vec3(ray.startPt.x + (delta * ray.endPt.x),ray.startPt.y + (delta * ray.endPt.y), p.z);
+
+   if ((iP.x - p.x)*(iP.x - p.x) + (iP.y - p.y)*(iP.y - p.y) <= cylinder.radius * cylinder.radius)
+   {
+      interTop.intersects = true;
+      interTop.point = iP;
+      interTop.normal = vec3(0,1,0);
+      interTop.material = tetrahedronMaterial;
+   }
+
+   // Bottom
+
+   // Side
+}
+/*-----------------------------------------------*/
+void intersectionCone(Shape cone, inout Line ray, inout Intersection inter)
+{
+
+}
+/*-----------------------------------------------*/
 void intersection(Shape shape, inout Line ray, inout Intersection inter)
 {
    if (shape.type == SPHERE)
       intersectionCircle(shape, ray, inter);
    else if (shape.type == CHECKERBOARD)
       intersectionCheckerBoard(shape, ray, inter);
-   else  // Remove once rest are finished
-      intersectionCircle(shape, ray, inter);
+   else if (shape.type == TETRAHEDRON)
+      intersectionTetrahedron(shape, ray, inter);
+   else if (shape.type == CUBE)
+      intersectionCube(shape, ray, inter);
+   else if (shape.type == CYLINDER)
+      intersectionCylinder(shape, ray, inter);
+   else if (shape.type == CONE)
+      intersectionCone(shape, ray, inter);
 }
 /*-----------------------------------------------*/
 void createShape(inout Shape shape, int index)
 {
    float type;
-   float radius;
-   float edge;
+   float radius = 0;
+   float edge = 0;
    vec3 pos;
-   float height;
+   float height = 0;
    Material material;
    int squares = 0;
    double board_half_size = 0;
@@ -424,13 +684,35 @@ void createShape(inout Shape shape, int index)
       board_half_size = edge / 2;
       square_edge_size = edge / squares;
    }
-   else // Remove later after all are defined
+   else if (uGeometry[index] == TETRAHEDRON)
    {
-      type = SPHERE;
+      type = TETRAHEDRON;
+      edge = uGeometry[++index];
+      pos = vec3(uGeometry[++index], uGeometry[++index], uGeometry[++index]);
+      material = tetrahedronMaterial;
+   }
+   else if (uGeometry[index] == CUBE)
+   {
+      type = CUBE;
+      edge = uGeometry[++index];
+      pos = vec3(uGeometry[++index], uGeometry[++index], uGeometry[++index]);
+      material = cubeMaterial;
+   }
+   else if (uGeometry[index] == CYLINDER)
+   {
+      type = CYLINDER;
       radius = uGeometry[++index];
       pos = vec3(uGeometry[++index], uGeometry[++index], uGeometry[++index]);
-      height = 0;
-      material = sphereMaterial;
+      height = uGeometry[++index];
+      material = tetrahedronMaterial;
+   }
+   else if (uGeometry[index] == CONE)
+   {
+      type = CONE;
+      radius = uGeometry[++index];
+      pos = vec3(uGeometry[++index], uGeometry[++index], uGeometry[++index]);
+      height = uGeometry[++index];
+      material = tetrahedronMaterial;
    }
 
    shape = Shape(type, radius, edge, pos, height, material, squares, board_half_size, square_edge_size);
@@ -625,7 +907,5 @@ void main()
 
    if (debugColor != vec4(0,0,0,1))
       fragColor = debugColor;
-   
-      
 }
 /*-----------------------------------------------*/

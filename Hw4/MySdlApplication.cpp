@@ -13,7 +13,7 @@
 //#include "GPoint.h"
 
 //   CONSTANTS
-#define SF_RAY 0
+bool g_sf_ray = false;
 enum { TETRAHEDRON, CUBE, SPHERE, CYLINDER, CONE, CHECKERBOARD, LIGHT };
 static const bool G_GL2_COMPATIBLE = false;
 static const unsigned char* KB_STATE = NULL;
@@ -155,8 +155,8 @@ static Cvec3f g_objectColors[1] = {Cvec3f(1, 0, 0)};
    TETRAHEDRON: type, edge_length, c_x, c_y, c_z, dummy
    CUBE: type, edge_length, c_x, c_y, c_z, dummy
    SPHERE: type, radius, c_x, c_y, c_z, dummy
-   CYLINDER: type, radius, height, c_x, c_y, c_z
-   CONE: type, radius, height, c_x, c_y, c_z
+   CYLINDER: type, radius, c_x, c_y, c_z, height
+   CONE: type, radius, c_x, c_y, c_z, height
    CHECKERBOARD: type, edge_length, c_x, c_y, c_z, squares
  */
 static GLfloat g_eyePosition[3] = { 0, 1000, 3000};
@@ -1540,7 +1540,7 @@ static void initGLState()
    REMARKS:		 
    */
    
-   if (SF_RAY)
+   if (g_sf_ray)
    {
       glClearColor(0.0, 0.0, 0.0, 1.0);
       glViewport(0, 0, g_windowWidth, g_windowHeight);
@@ -1638,6 +1638,20 @@ void MySdlApplication::initScene2()
    string tmp;
    bool isFinished = false;
    cout << endl;
+
+   cout << "Default Mode: Shader Render" << endl;
+   cout << "Enter (a) for Software_Render or anything else for Shader Render" << endl;
+   cout << "Software_Render is slow so please be patient" << endl;
+   cin >> tmp;
+
+   if (tmp.size() == 1 && (tmp[0] - 'a') == 0)
+   {
+      g_sf_ray = true;
+      for (int i = 0; i < 3; i++)
+         g_eyePosition[i] = float(CAMERA_POSITION[i]);
+   }
+   else
+      return; //TODO Remove at the end
 
    while (!isFinished)
    {
@@ -1833,7 +1847,7 @@ void MySdlApplication::onRender()
    REMARKS:		 
    */
 
-   if (SF_RAY)
+   if (g_sf_ray)
       draw();
    else
    {
@@ -1936,10 +1950,9 @@ bool MySdlApplication::onInit()
       throw runtime_error(
       "Error: does not support OpenGL Shading Language v1.0");
 
+   initScene2();
    initGLState();
-   if (SF_RAY) //TODO remove this after shapes are sent to shader
-      initScene2();
-   else
+   if (!g_sf_ray)
    {
       initShaders();
       initGeometry();

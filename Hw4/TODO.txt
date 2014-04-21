@@ -39,7 +39,7 @@ Point Breakdown
 Done - Code rewritten using SDL	(1pt)
 Done - New user interface as described	(1pt)
 Done - Vertex shader as described	(1pt)
-- Scene drawn using ray-tracing in the fragment shader. (1pt) 
+Part - Scene drawn using ray-tracing in the fragment shader. (1pt) 
 Part - Spheres, lights, and checker drawn at user given coords (1pt)
 Part - Objects input by user sent to fragment shader as uniform variable	(1pt)
 - Ray tracing intersections calculated by shader for five primitive types (0.5pt) or (2.5pts)
