@@ -721,7 +721,110 @@ void intersectionCylinder(Shape cylinder, inout Line ray, inout Intersection int
 /*-----------------------------------------------*/
 void intersectionCone(Shape cone, inout Line ray, inout Intersection inter)
 {
+   Intersection interBottom;
+   Intersection interSide1;
+   Intersection interSide2;
+   createIntersection(interBottom);
+   createIntersection(interSide1);
+   createIntersection(interSide2);
 
+   vec3 p = cone.pos;
+   double height = cone.height;
+
+   // Bottom
+   double delta = (ray.startPt.z - p.z) / ray.endPt.z;
+   vec3 iP = vec3(ray.startPt.x + (delta * ray.endPt.x),ray.startPt.y + (delta * ray.endPt.y), p.z);
+
+   if ((iP.x - p.x)*(iP.x - p.x) + (iP.y - p.y)*(iP.y - p.y) <= cone.radius * cone.radius)
+   {
+      interBottom.intersects = true;
+      interBottom.point = iP;
+      interBottom.normal = vec3(0,-1,0);
+   }
+
+   // Side
+   double ratio = cone.radius/cone.height;
+   double yTerminal = cone.pos.y;
+   double startX = ray.startPt.x;
+   double startY = ray.startPt.y;
+   double startZ = ray.startPt.z;
+   double endX = ray.endPt.x;
+   double endY = ray.endPt.y;
+   double endZ = ray.endPt.z;
+   double yk = startY - yTerminal;
+   double a = endX*endX + endZ*endZ - ratio*ratio*endY*endY;
+   double b = 2*endX*startX + endZ*startZ - ratio*ratio*yk*endY;
+   double c = startX*startX + startZ*startZ - ratio*ratio*yk*yk;
+
+   bool first = false;
+   bool second = false;
+   double t1;
+   double t2;
+   // Use the quadratic equation to solve for t
+   double d = b*b - (4*a*c);
+   
+   if (d == 0 || d == 1)
+   {
+      t1 = (-b/2*a) + (sqrt(d)/(2*a));
+      first = true;
+      if(sqrt(d) != 0)
+      {
+         t2 = (-b/(2*a)) - (sqrt(d)/(2*a));
+         second = true;
+      }
+   }
+
+   if (first)
+   {
+      // Check point is within height of cone
+
+      double x = startX + t1*endX;
+      double y = startY + t1*endY;
+      double z = startZ + t1*endZ;
+      
+      if (y >= p.y && y <= p.y + height)
+      {
+         interSide1.intersects = true;
+         interSide1.point = vec3 (x, y, z);
+         // Normal is center at base to intersection pt then scaled
+         vec3 normTmp = vec3(x - p.x, 0, z - p.z);
+         normTmp = normalize(normTmp);
+         interSide1.normal = vec3(normTmp.x * height / cone.radius, 
+            cone.radius/height, normTmp.z * height / cone.radius);
+      }
+   }
+   if (second)
+   {
+      // Check point is within height of cone
+
+      double x = startX + t2*endX;
+      double y = startY + t2*endY;
+      double z = startZ + t2*endZ;
+
+      if (y >= p.y && y <= p.y + height)
+      {
+         interSide2.intersects = true;
+         interSide2.point = vec3 (x, y, z);
+         // Normal is center at base to intersection pt then scaled
+         vec3 normTmp = vec3(x - p.x, 0, z - p.z);
+         normTmp = normalize(normTmp);
+         interSide2.normal = vec3(normTmp.x * height / cone.radius, 
+            cone.radius/height, normTmp.z * height / cone.radius);
+      }
+   }
+
+   double minDistance = -1;
+   double distanceTmp = 0;
+   
+   // When multiple intersections check distance for closest
+   if (interBottom.intersects)
+      distanceCompare(minDistance, inter, interBottom, ray);
+   if (interSide1.intersects)
+      distanceCompare(minDistance, inter, interSide1, ray);
+   if (interSide2.intersects)
+      distanceCompare(minDistance, inter, interSide2, ray);
+   
+   inter.material = tetrahedronMaterial;
 }
 /*-----------------------------------------------*/
 void intersection(Shape shape, inout Line ray, inout Intersection inter)
