@@ -610,12 +610,15 @@ void intersectionCylinder(Shape cylinder, inout Line ray, inout Intersection int
 {
    Intersection interTop;
    Intersection interBottom;
-   Intersection interSide;
+   Intersection interSide1;
+   Intersection interSide2;
    createIntersection(interTop);
    createIntersection(interBottom);
-   createIntersection(interSide);
+   createIntersection(interSide1);
+   createIntersection(interSide2);
 
    vec3 p = cylinder.pos;
+   double height = cylinder.height;
 
    // Top
    double delta = (ray.startPt.z - p.z) / ray.endPt.z;
@@ -626,12 +629,94 @@ void intersectionCylinder(Shape cylinder, inout Line ray, inout Intersection int
       interTop.intersects = true;
       interTop.point = iP;
       interTop.normal = vec3(0,1,0);
-      interTop.material = tetrahedronMaterial;
    }
 
    // Bottom
+   delta = (ray.startPt.z - (p.z+cylinder.height)) / ray.endPt.z;
+   iP = vec3(ray.startPt.x + (delta * ray.endPt.x),ray.startPt.y + (delta * ray.endPt.y), p.z+cylinder.height);
+
+   if ((iP.x - p.x)*(iP.x - p.x) + (iP.y - p.y)*(iP.y - p.y) <= cylinder.radius * cylinder.radius)
+   {
+      interBottom.intersects = true;
+      interBottom.point = iP;
+      interBottom.normal = vec3(0,-1,0);
+   }
 
    // Side
+   double r = cylinder.radius;
+   double m = (ray.endPt.z - ray.startPt.x) / (ray.endPt.x - ray.startPt.x);
+   double b0 = ray.startPt.z - (m * ray.startPt.x);
+
+   double x0 = ray.startPt.x;
+   double z0 = ray.startPt.z;
+
+   double a = 1 + m*m;
+   double b = -2*x0 - 2*m*z0;
+   double c = x0*x0 + 2*b0 + b0*b0 - 2*b0*z0 + z0*z0 - r*r;
+
+   bool first = false;
+   bool second = false;
+   double x1;
+   double x2;
+   // Use the quadratic equation to solve for x
+   double d = b*b - (4*a*c);
+   
+   if (d == 0 || d == 1)
+   {
+      x1 = (-b/2*a) + (sqrt(d)/(2*a));
+      first = true;
+      if(sqrt(d) != 0)
+      {
+         x2 = (-b/(2*a)) - (sqrt(d)/(2*a));
+         second = true;
+      }
+   }
+
+   if (first)
+   {
+      // Check point is within height of cylinder
+
+      double delta = (x1 - x0) / ray.endPt.x;
+      double y = ray.startPt.y + (delta * ray.endPt.y);
+      double z = ray.startPt.z + (delta * ray.endPt.z);
+
+      if (y >= p.y && y <= p.y + height)
+      {
+         interSide1.intersects = true;
+         interSide1.point = vec3 (x1, y, z);
+         interSide1.normal = interSide1.point - (p + vec3(0,y,0)); // Center at height to intersection pt
+      }
+   }
+   if (second)
+   {
+      // Check point is within height of cylinder
+
+      double delta = (x2 - x0) / ray.endPt.x;
+      double y = ray.startPt.y + (delta * ray.endPt.y);
+      double z = ray.startPt.z + (delta * ray.endPt.z);
+
+      if (y >= p.y && y <= p.y + height)
+      {
+         interSide2.intersects = true;
+         interSide2.point = vec3 (x2, y, z);
+         interSide2.normal = interSide2.point - (p + vec3(0,y,0)); // Center at height to intersection pt
+      }
+   }
+
+   double minDistance = -1;
+   double distanceTmp = 0;
+   
+   // When multiple intersections check distance for closest
+   if (interTop.intersects)
+      distanceCompare(minDistance, inter, interTop, ray);
+   if (interBottom.intersects)
+      distanceCompare(minDistance, inter, interBottom, ray);
+   if (interSide1.intersects)
+      distanceCompare(minDistance, inter, interSide1, ray);
+   if (interSide2.intersects)
+      distanceCompare(minDistance, inter, interSide2, ray);
+   
+   inter.material = tetrahedronMaterial;
 }
 /*-----------------------------------------------*/
 void intersectionCone(Shape cone, inout Line ray, inout Intersection inter)
