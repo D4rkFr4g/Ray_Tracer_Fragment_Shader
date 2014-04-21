@@ -35,13 +35,13 @@ You do not need to make these work in your shader to receive full credit.
 Point Breakdown
 
 
-- Code well-documented follows SJSU CS guidelines for C++. (Undergrad version) (1pt)
+Done - Code well-documented follows SJSU CS guidelines for C++. (Undergrad version) (1pt)
 Done - Code rewritten using SDL	(1pt)
 Done - New user interface as described	(1pt)
 Done - Vertex shader as described	(1pt)
 Part - Scene drawn using ray-tracing in the fragment shader. (1pt) 
 Part - Spheres, lights, and checker drawn at user given coords (1pt)
 Part - Objects input by user sent to fragment shader as uniform variable	(1pt)
-- Ray tracing intersections calculated by shader for five primitive types (0.5pt) or (2.5pts)
+Done - Ray tracing intersections calculated by shader for five primitive types (0.5pt) or (2.5pts)
 Part - Scene draws correctly under a variety of inputs	(0.5pts)
 Total	10pts
