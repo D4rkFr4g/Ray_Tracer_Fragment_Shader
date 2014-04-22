@@ -39,6 +39,19 @@ static void readTextFile(const char *fn, vector<char>& data) {
   ifs.read(&data[0], len);
 }
 
+string writeTextFile(const char *fn, string s)
+{
+  string filename(fn);
+  filename += "b";
+
+  ofstream myfile;
+  myfile.open (filename);
+  myfile << s;
+  myfile.close();
+
+  return filename;
+}
+
 // Print info regarding an GL object
 static void printInfoLog(GLuint obj, const string& filename) {
   GLint infologLength = 0;
@@ -51,7 +64,7 @@ static void printInfoLog(GLuint obj, const string& filename) {
   }
 }
 
-const char* modifyFS(const char* fs, int numLights, int numGeom)
+string modifyFS(const char* fn, const char* fs, int numLights, int numGeom)
 {
    /*	PURPOSE:		Find and replace array sizes
       RECEIVES:	fs - Fragment Shader
@@ -59,30 +72,52 @@ const char* modifyFS(const char* fs, int numLights, int numGeom)
       REMARKS:		
       */
 
+   int lightStride = 3;
+   int geomStride = 6;
+
    string frag(fs);
 
    string one = frag.substr(0,32);
    string two = frag.substr(34,48);
-   string three = frag.substr(84);
+   string three = frag.substr(84,136);
+   string four = frag.substr(221,67);
+   string five = frag.substr(289);
 
    stringstream ss;
-   ss << numLights;
+   ss.str(std::string());
+   ss << numLights / lightStride;
    string str = ss.str();
-   
    one += "" + str;
 
-   ss << numGeom;
+   ss.str(std::string());
+   ss << numGeom / geomStride;
    str = ss.str();
    two += "" + str;
 
-   frag = one + two + three;
+   ss.str(std::string());
+   ss << numLights;
+   str = ss.str();
+   three += "" + str;
 
-   // Convert back to const char*
-   char* S = new char[frag.length() + 1];
-   std::strcpy(S,frag.c_str());
+   ss.str(std::string());
+   ss << numGeom;
+   str = ss.str();
+   four += "" + str;
 
-   return (const char*) S;
+   // Remove junk at end of file
+   bool isRemoving = true;
+   while (isRemoving)
+   {
+      string test = five.substr(five.length() - 1);
+      if (five.substr(five.length() - 1).compare("}") != 0)
+         five = five.substr(0, five.length() - 1);
+      else
+         isRemoving = false;
+   }
 
+   frag = one + two + three + four + five;
+
+   return writeTextFile(fn, frag);
 }
 
 void readAndCompileSingleShader(GLuint shaderHandle, const char *fn) {
@@ -115,9 +150,13 @@ void readAndCompileSingleShader(GLuint shaderHandle, const char*fn, int numLight
   string f1 = filename;
   string f2 = fn;
   if (f1.compare(f2) == 0)
-   const char* mfn = modifyFS(*ptrs, numLights, numGeom);
-
-  readAndCompileSingleShader(shaderHandle, fn);
+  {
+     string s = modifyFS(fn, *ptrs, numLights, numGeom);
+     const char* mfn = s.c_str();
+     readAndCompileSingleShader(shaderHandle, mfn);
+  }
+  else
+   readAndCompileSingleShader(shaderHandle, fn);
 }
 void linkShader(GLuint programHandle, GLuint vs, GLuint fs) {
   glAttachShader(programHandle, vs);

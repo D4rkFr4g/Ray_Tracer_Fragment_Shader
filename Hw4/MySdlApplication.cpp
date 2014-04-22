@@ -179,6 +179,8 @@ static GLfloat g_geometryData[NUM_SHAPES * GEOMETRY_STRIDE] =
 //for your code you get this light data from user input
 static GLfloat g_lightData[NUM_LIGHTS * LIGHT_STRIDE] =
    {0.0, 5.0, 0.0};
+
+static int g_numLights, g_numGeoms;
 ///////////////// END OF G L O B A L S ///////////////////////
 
 //-------------- Code to be moved to Shader ---------------//
@@ -1470,9 +1472,11 @@ static void sendGeometry(const ShaderState& curSS,
     safe_glUniformMatrix4fv(curSS.h_uInverseModelViewMatrix, inverseglmatrix);
 
 	glUniform1fv(curSS.h_uEyePosition, 3, g_eyePosition);
+
+
 	
-	glUniform1fv(curSS.h_uGeometry, NUM_SHAPES * GEOMETRY_STRIDE, g_geomData.data());
-   glUniform1fv(curSS.h_uLights, NUM_LIGHTS * LIGHT_STRIDE, g_lData.data());
+   glUniform1fv(curSS.h_uGeometry,  g_numGeoms * GEOMETRY_STRIDE, g_geomData.data());
+   glUniform1fv(curSS.h_uLights, g_numLights * LIGHT_STRIDE, g_lData.data());
    //glUniform1fv(curSS.h_uLights, NUM_LIGHTS * LIGHT_STRIDE, g_lightData);
    //glUniform1fv(curSS.h_uGeometry, NUM_SHAPES * GEOMETRY_STRIDE, g_geometryData);
 }
@@ -1725,9 +1729,9 @@ void MySdlApplication::loadScene()
       else if (type == TETRAHEDRON)
       {
          Tetrahedron *tetrahedron = new Tetrahedron(convertStringCoordinate(position), SQUARE_EDGE_SIZE);
+         g_scene.addRayObject(tetrahedron);
          
          Point p = convertStringCoordinate(position);
-         g_scene.addRayObject(tetrahedron);
          g_geomData.push_back(TETRAHEDRON);
          g_geomData.push_back(SQUARE_EDGE_SIZE);
          g_geomData.push_back(p.x());
@@ -1797,6 +1801,9 @@ void MySdlApplication::loadScene()
       g_geomData.push_back(b.y());
       g_geomData.push_back(b.z());
       g_geomData.push_back(NUM_SQUARES);
+
+      g_numLights =  g_lData.size() / LIGHT_STRIDE;
+      g_numGeoms = g_geomData.size() / GEOMETRY_STRIDE;
 }
 /*-----------------------------------------------*/
 void draw()
