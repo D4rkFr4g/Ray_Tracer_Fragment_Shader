@@ -12,14 +12,16 @@ uniform mat4 uInverseModelViewMatrix;
 uniform mat4 uProjMatrix;
 uniform mat4 uModelViewMatrix;
 
-const double SMALL_NUMBER = .0001;
+mat4 MVM;
+float g_vol = 400;
+const float SMALL_NUMBER = .0001;
 const int TETRAHEDRON = 0;
 const int CUBE = 1;
 const int SPHERE = 2;
 const int CYLINDER = 3;
 const int CONE = 4;
 const int CHECKERBOARD = 5;
-const double ATTENUATION_FACTOR = 100000; 
+const float ATTENUATION_FACTOR = 100000; 
 
 const vec3 WHITE = vec3(1.0);
 const vec3 BLACK = vec3(0.0);
@@ -71,7 +73,7 @@ struct Material
    vec3 diffuse;
    vec3 specular;
    vec3 transparency;
-   double refraction;
+   float refraction;
 };
 /*-----------------------------------------------*/
 struct Intersection
@@ -94,8 +96,8 @@ struct Shape
    float height;
    Material material;
    int squares;
-   double board_half_size;
-   double square_edge_size;
+   float board_half_size;
+   float square_edge_size;
 };
 /*-----------------------------------------------*/
 struct Triangle
@@ -134,13 +136,13 @@ Material cubeMaterial = Material(.1*RED, .4*RED, RED, BLACK, 1);
 float ATTENUATION = 0.3;
 /*-----------------------------------------------*/
 
-double length(vec3 v)
+float length(vec3 v)
 {
    return sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
 }
 
 /*-----------------------------------------------*/
-double length(Line l)
+float length(Line l)
 {
    vec3 p = l.endPt - l.startPt;
    return length(p);
@@ -157,22 +159,32 @@ vec3 direction(Line line)
    p = normalize(p);
    return p;
 }
-
-double attenuation(double distance)
+/*-----------------------------------------------*/
+float attenuation(float distance)
 {
    return ATTENUATION_FACTOR/(ATTENUATION_FACTOR + distance*distance);
 }
 /*-----------------------------------------------*/
-void distanceCompare(inout double minDistance, inout Intersection inter, Intersection interTmp, Line ray) 
+void distanceCompare(inout float minDistance, inout Intersection inter, Intersection interTmp, Line ray) 
 {
    vec3 directionCur = inter.point - ray.startPt;
-   double distanceTmp = length(directionCur);
+   float distanceTmp = length(directionCur);
 
    if (distanceTmp < minDistance || minDistance < 0.0)
    {
       minDistance = distanceTmp;
       inter = interTmp;
    }
+}
+/*-----------------------------------------------*/
+void convertCoords(inout vec3 v)
+{
+   v = vec3(v.x/g_vol, v.y/g_vol, v.z/g_vol);
+}
+/*-----------------------------------------------*/
+void convertScalar(inout float f)
+{
+   f = f / g_vol;
 }
 /*-----------------------------------------------*/
 void createIntersection(inout Intersection inter)
@@ -185,18 +197,21 @@ void createIntersection(inout Intersection inter)
    inter.transmittedRay = Line(vec3(0),vec3(0));
 }
 /*-----------------------------------------------*/
-void intersectionCircle(Shape circle, inout Line ray, inout Intersection inter)
+void intersectionSphere(Shape circle, inout Line ray, inout Intersection inter)
 {
    vec3 u = ray.endPt - ray.startPt;
    vec3 p0 = ray.startPt;
    vec3 position = circle.pos;
+   convertCoords(position);
    vec3 deltaP = position - p0;
+   float radius = circle.radius;
+   convertScalar(radius);
 
-   if (circle.radius > 0)
+   if (radius > 0)
    {
-      double uDeltaP = dot(u,deltaP);
-      double discriminant = uDeltaP*uDeltaP - dot(deltaP, deltaP) + circle.radius*circle.radius; //dot(deltaP, deltaP)
-      double s = uDeltaP - sqrt(discriminant);
+      float uDeltaP = dot(u,deltaP);
+      float discriminant = uDeltaP*uDeltaP - dot(deltaP, deltaP) + radius*radius; //dot(deltaP, deltaP)
+      float s = uDeltaP - sqrt(discriminant);
 
       if (discriminant < 0 || abs(s) < SMALL_NUMBER)
       {
@@ -225,14 +240,14 @@ void intersectionCircle(Shape circle, inout Line ray, inout Intersection inter)
       
       //Transmitted vector calculated using thin lens equations from book
       vec3 t = vec3(0.0);
-      double refractionRatio = circle.material.refraction;
-      double cosThetai = dot(u, n);
-      double modulus = 1 - refractionRatio*refractionRatio*( 1- cosThetai*cosThetai);
+      float refractionRatio = circle.material.refraction;
+      float cosThetai = dot(u, n);
+      float modulus = 1 - refractionRatio*refractionRatio*( 1- cosThetai*cosThetai);
 
       if( modulus > 0)
       {
-         double cosThetar = sqrt(modulus);
-         double cT = (cosThetar + refractionRatio * cosThetai);
+         float cosThetar = sqrt(modulus);
+         float cT = (cosThetar + refractionRatio * cosThetai);
          vec3 nC = vec3(cT*n.x, cT*n.y, cT*n.z);
          vec3 rU = vec3(refractionRatio*u.x, refractionRatio*u.y, refractionRatio*u.z);
          t = rU - nC;
@@ -261,11 +276,11 @@ void intersectionTriangle(Triangle triangle, inout Line ray, inout Intersection 
 
    n = normalize(n);
 
-   double uv = dot(_u,v);
-   double uu = dot(_u,_u);
-   double vv = dot(v,v);
+   float uv = dot(_u,v);
+   float uu = dot(_u,_u);
+   float vv = dot(v,v);
    
-   double denominator = (uv*uv) - (uu*vv);
+   float denominator = (uv*uv) - (uu*vv);
 
    if( abs(denominator) < SMALL_NUMBER)
          return;
@@ -273,7 +288,7 @@ void intersectionTriangle(Triangle triangle, inout Line ray, inout Intersection 
    vec3 p0 = ray.startPt;
    vec3 p1 = ray.endPt;
    vec3 diffP = p1 - p0;
-   double ndiffP = dot(n, diffP);
+   float ndiffP = dot(n, diffP);
 
    //handle another degenerate case by saying we don't intersect
    if( abs(ndiffP) < SMALL_NUMBER)
@@ -282,7 +297,7 @@ void intersectionTriangle(Triangle triangle, inout Line ray, inout Intersection 
       return;
    }
    
-   double m = dot(n, (v0 - p0))/ dot(n, diffP);
+   float m = dot(n, (v0 - p0))/ dot(n, diffP);
    if( m < SMALL_NUMBER) //if m is negative then we don't intersect
    {
       inter.intersects = false;
@@ -295,11 +310,11 @@ void intersectionTriangle(Triangle triangle, inout Line ray, inout Intersection 
 
    //Now check if in triangle   
     
-   double wu = dot(w, _u);
-   double wv = dot(w, v);
+   float wu = dot(w, _u);
+   float wv = dot(w, v);
 
-   double s = (uv*wv - vv*wu)/denominator;
-   double t = (uv*wu - uu*wv)/denominator;
+   float s = (uv*wv - vv*wu)/denominator;
+   float t = (uv*wu - uu*wv)/denominator;
 
    if( s >= 0 && t >=0 && s + t <= 1) // intersect
    {
@@ -311,7 +326,7 @@ void intersectionTriangle(Triangle triangle, inout Line ray, inout Intersection 
 
       /*
       //Transmitted vector calculated using thin lens equations from book
-      double refractionRatio = material.refraction();
+      float refractionRatio = material.refraction();
 
       Point t(0.0, 0.0, 0.0);
 
@@ -338,7 +353,7 @@ void intersectionTriangle(Triangle triangle, inout Line ray, inout Intersection 
 /*-----------------------------------------------*/
 void intersectionSquare(Shape square, inout Line ray, inout Intersection inter)
 {
-   double halfSize = square.board_half_size;
+   float halfSize = square.board_half_size;
    vec3 p = square.pos;
    vec3 v0 = p + vec3(-halfSize, 0, -halfSize);
    vec3 v1 = p + vec3( halfSize, 0, -halfSize);
@@ -346,12 +361,11 @@ void intersectionSquare(Shape square, inout Line ray, inout Intersection inter)
    vec3 v3 = p + vec3(-halfSize, 0,  halfSize);
    
    // Convert wCoords to camCoords
-   /*
-   v0 = vec3(uModelViewMatrix * vec4(v0,1));
-   v1 = vec3(uModelViewMatrix * vec4(v1,1));
-   v2 = vec3(uModelViewMatrix * vec4(v2,1));
-   v3 = vec3(uModelViewMatrix * vec4(v3,1));
-   */
+   convertCoords(v0);
+   convertCoords(v1);
+   convertCoords(v2);
+   convertCoords(v3);
+   
 
    Triangle t0 = Triangle(v0, v1, v2, UP_VECTOR);
    Triangle t1 = Triangle(v0, v2, v3, UP_VECTOR);
@@ -366,10 +380,12 @@ void intersectionSquare(Shape square, inout Line ray, inout Intersection inter)
 
    if (inter0.intersects)
    {
+      //debugColor = dRED;
       inter = inter0;
    }
    else if (inter1.intersects)
    {
+      //debugColor = dGREEN;
       inter = inter1;
    }
    else
@@ -380,19 +396,23 @@ void intersectionSquare(Shape square, inout Line ray, inout Intersection inter)
 /*-----------------------------------------------*/
 void intersectionCheckerBoard(Shape board, inout Line ray, inout Intersection inter)
 {   
-   
    intersectionSquare(board, ray, inter);
 
    if(inter.intersects)
    {
-      double edge = 5;
+      //float edge = 5;
       //vec3 boardOffset = vec3(uModelViewMatrix * vec4(board.board_half_size,0,board.board_half_size,1));
       //vec3 p = inter.point - board.pos + boardOffset;
       
-      vec3 p = inter.point - board.pos + vec3(board.board_half_size, 0, board.board_half_size);
-      
+      vec3 tmp = board.pos + vec3(board.board_half_size, 0, board.board_half_size);
+      //convertCoords(tmp);
+      vec3 p = inter.point - tmp;
+
+      vec3 sqEdge = vec3(board.square_edge_size, board.square_edge_size, board.square_edge_size);
+      convertCoords(sqEdge);
+      int squareSum = int(p.x/(sqEdge.x)) + int(p.z/(sqEdge.x));
       //int squareSum = int(p.x/(1/board.square_edge_size)) + int(p.z/(1/board.square_edge_size));
-      int squareSum = int(p.x/(board.square_edge_size)) + int(p.z/(board.square_edge_size));
+      //int squareSum = int(p.x/(board.square_edge_size)) + int(p.z/(board.square_edge_size));
       //int squareSum = int(p.x/edge) + int(p.z/edge);
 
       if((squareSum & 1) == 0)
@@ -405,8 +425,11 @@ void intersectionCheckerBoard(Shape board, inout Line ray, inout Intersection in
 /*-----------------------------------------------*/
 void intersectionTetrahedron(Shape tetrahedron, inout Line ray, inout Intersection inter)
 {
-   double halfEdge = tetrahedron.edge / 2;
+   float edge = tetrahedron.edge;
+   convertScalar(edge);
+   float halfEdge = edge / 2;
    vec3 pos = tetrahedron.pos;
+   convertCoords(pos);
    vec3 n = vec3(0,0,0);
 
    Triangle t0 = Triangle(pos + vec3(-halfEdge, -halfEdge, -halfEdge), 
@@ -437,8 +460,8 @@ void intersectionTetrahedron(Shape tetrahedron, inout Line ray, inout Intersecti
    intersectionTriangle(t3, ray, interT3);
    
    // When multiple intersections check distance for closest
-   double minDistance = -1;
-   double distanceTmp = 0;
+   float minDistance = -1;
+   float distanceTmp = 0;
 
    if (interT0.intersects)
       distanceCompare(minDistance, inter, interT0, ray);
@@ -457,7 +480,7 @@ void intersectionPlane(vec3 v0, vec3 n, Line ray, inout Intersection inter)
    vec3 p0 = ray.startPt;
    vec3 p1 = ray.endPt;
    vec3 diffP = p1 - p0;
-   double ndiffP = dot(n, diffP);
+   float ndiffP = dot(n, diffP);
    
    //handle another degenerate case by saying we don't intersect
    if( abs(ndiffP) < SMALL_NUMBER)
@@ -466,7 +489,7 @@ void intersectionPlane(vec3 v0, vec3 n, Line ray, inout Intersection inter)
       return;
    } 
 
-   double m = dot(n, (v0 - p0))/ dot(n, diffP);
+   float m = dot(n, (v0 - p0))/ dot(n, diffP);
 
    if( m < SMALL_NUMBER) //if m is negative thenwe don't intersect
    {
@@ -481,9 +504,9 @@ void inSide(inout Intersection inter, Side side)
    vec3 p = inter.point;
 
    //Find min maxs
-   double minX, maxX;
-   double minY, maxY;
-   double minZ, maxZ;
+   float minX, maxX;
+   float minY, maxY;
+   float minZ, maxZ;
 
    minX = min(side.v0.x, min(side.v1.x, min(side.v2.x, side.v3.x)));
    maxX = max(side.v0.x, max(side.v1.x, max(side.v2.x, side.v3.x)));
@@ -502,8 +525,11 @@ void inSide(inout Intersection inter, Side side)
 /*-----------------------------------------------*/
 void intersectionCube(Shape cube, inout Line ray, inout Intersection inter)
 {
-   double halfEdge = cube.edge / 2;
+   float edge = cube.edge;
+   convertScalar(edge);
+   float halfEdge = edge / 2;
    vec3 pos = cube.pos;
+   convertCoords(pos);
    vec3 n = vec3(0,0,0);
    vec3 p = vec3(0,0,0);
 
@@ -586,8 +612,8 @@ void intersectionCube(Shape cube, inout Line ray, inout Intersection inter)
    if (interYn.intersects)
       inSide(interYn, yN);
 
-   double minDistance = -1;
-   double distanceTmp = 0;
+   float minDistance = -1;
+   float distanceTmp = 0;
    
    // When multiple intersections check distance for closest
    if (interZp.intersects)
@@ -618,13 +644,17 @@ void intersectionCylinder(Shape cylinder, inout Line ray, inout Intersection int
    createIntersection(interSide2);
 
    vec3 p = cylinder.pos;
-   double height = cylinder.height;
+   convertCoords(p);
+   float height = cylinder.height;
+   convertScalar(height);
+   float radius = cylinder.radius;
+   convertScalar(radius);
 
    // Top
-   double delta = (ray.startPt.z - p.z) / ray.endPt.z;
+   float delta = (ray.startPt.z - p.z) / ray.endPt.z;
    vec3 iP = vec3(ray.startPt.x + (delta * ray.endPt.x),ray.startPt.y + (delta * ray.endPt.y), p.z);
 
-   if ((iP.x - p.x)*(iP.x - p.x) + (iP.y - p.y)*(iP.y - p.y) <= cylinder.radius * cylinder.radius)
+   if ((iP.x - p.x)*(iP.x - p.x) + (iP.y - p.y)*(iP.y - p.y) <= radius * radius)
    {
       interTop.intersects = true;
       interTop.point = iP;
@@ -632,10 +662,10 @@ void intersectionCylinder(Shape cylinder, inout Line ray, inout Intersection int
    }
 
    // Bottom
-   delta = (ray.startPt.z - (p.z+cylinder.height)) / ray.endPt.z;
-   iP = vec3(ray.startPt.x + (delta * ray.endPt.x),ray.startPt.y + (delta * ray.endPt.y), p.z+cylinder.height);
+   delta = (ray.startPt.z - (p.z+height)) / ray.endPt.z;
+   iP = vec3(ray.startPt.x + (delta * ray.endPt.x),ray.startPt.y + (delta * ray.endPt.y), p.z+height);
 
-   if ((iP.x - p.x)*(iP.x - p.x) + (iP.y - p.y)*(iP.y - p.y) <= cylinder.radius * cylinder.radius)
+   if ((iP.x - p.x)*(iP.x - p.x) + (iP.y - p.y)*(iP.y - p.y) <= radius * radius)
    {
       interBottom.intersects = true;
       interBottom.point = iP;
@@ -643,23 +673,23 @@ void intersectionCylinder(Shape cylinder, inout Line ray, inout Intersection int
    }
 
    // Side
-   double r = cylinder.radius;
-   double m = (ray.endPt.z - ray.startPt.x) / (ray.endPt.x - ray.startPt.x);
-   double b0 = ray.startPt.z - (m * ray.startPt.x);
+   float r = radius;
+   float m = (ray.endPt.z - ray.startPt.x) / (ray.endPt.x - ray.startPt.x);
+   float b0 = ray.startPt.z - (m * ray.startPt.x);
 
-   double x0 = ray.startPt.x;
-   double z0 = ray.startPt.z;
+   float x0 = ray.startPt.x;
+   float z0 = ray.startPt.z;
 
-   double a = 1 + m*m;
-   double b = -2*x0 - 2*m*z0;
-   double c = x0*x0 + 2*b0 + b0*b0 - 2*b0*z0 + z0*z0 - r*r;
+   float a = 1 + m*m;
+   float b = -2*x0 - 2*m*z0;
+   float c = x0*x0 + 2*b0 + b0*b0 - 2*b0*z0 + z0*z0 - r*r;
 
    bool first = false;
    bool second = false;
-   double x1;
-   double x2;
+   float x1;
+   float x2;
    // Use the quadratic equation to solve for x
-   double d = b*b - (4*a*c);
+   float d = b*b - (4*a*c);
    
    if (d == 0 || d == 1)
    {
@@ -676,9 +706,9 @@ void intersectionCylinder(Shape cylinder, inout Line ray, inout Intersection int
    {
       // Check point is within height of cylinder
 
-      double delta = (x1 - x0) / ray.endPt.x;
-      double y = ray.startPt.y + (delta * ray.endPt.y);
-      double z = ray.startPt.z + (delta * ray.endPt.z);
+      float delta = (x1 - x0) / ray.endPt.x;
+      float y = ray.startPt.y + (delta * ray.endPt.y);
+      float z = ray.startPt.z + (delta * ray.endPt.z);
 
       if (y >= p.y && y <= p.y + height)
       {
@@ -691,9 +721,9 @@ void intersectionCylinder(Shape cylinder, inout Line ray, inout Intersection int
    {
       // Check point is within height of cylinder
 
-      double delta = (x2 - x0) / ray.endPt.x;
-      double y = ray.startPt.y + (delta * ray.endPt.y);
-      double z = ray.startPt.z + (delta * ray.endPt.z);
+      float delta = (x2 - x0) / ray.endPt.x;
+      float y = ray.startPt.y + (delta * ray.endPt.y);
+      float z = ray.startPt.z + (delta * ray.endPt.z);
 
       if (y >= p.y && y <= p.y + height)
       {
@@ -703,8 +733,8 @@ void intersectionCylinder(Shape cylinder, inout Line ray, inout Intersection int
       }
    }
 
-   double minDistance = -1;
-   double distanceTmp = 0;
+   float minDistance = -1;
+   float distanceTmp = 0;
    
    // When multiple intersections check distance for closest
    if (interTop.intersects)
@@ -729,13 +759,17 @@ void intersectionCone(Shape cone, inout Line ray, inout Intersection inter)
    createIntersection(interSide2);
 
    vec3 p = cone.pos;
-   double height = cone.height;
+   convertCoords(p);
+   float height = cone.height;
+   convertScalar(height);
+   float radius = cone.radius;
+   convertScalar(radius);
 
    // Bottom
-   double delta = (ray.startPt.z - p.z) / ray.endPt.z;
+   float delta = (ray.startPt.z - p.z) / ray.endPt.z;
    vec3 iP = vec3(ray.startPt.x + (delta * ray.endPt.x),ray.startPt.y + (delta * ray.endPt.y), p.z);
 
-   if ((iP.x - p.x)*(iP.x - p.x) + (iP.y - p.y)*(iP.y - p.y) <= cone.radius * cone.radius)
+   if ((iP.x - p.x)*(iP.x - p.x) + (iP.y - p.y)*(iP.y - p.y) <= radius * radius)
    {
       interBottom.intersects = true;
       interBottom.point = iP;
@@ -743,25 +777,25 @@ void intersectionCone(Shape cone, inout Line ray, inout Intersection inter)
    }
 
    // Side
-   double ratio = cone.radius/cone.height;
-   double yTerminal = cone.pos.y;
-   double startX = ray.startPt.x;
-   double startY = ray.startPt.y;
-   double startZ = ray.startPt.z;
-   double endX = ray.endPt.x;
-   double endY = ray.endPt.y;
-   double endZ = ray.endPt.z;
-   double yk = startY - yTerminal;
-   double a = endX*endX + endZ*endZ - ratio*ratio*endY*endY;
-   double b = 2*endX*startX + endZ*startZ - ratio*ratio*yk*endY;
-   double c = startX*startX + startZ*startZ - ratio*ratio*yk*yk;
+   float ratio = radius/height;
+   float yTerminal = p.y;
+   float startX = ray.startPt.x;
+   float startY = ray.startPt.y;
+   float startZ = ray.startPt.z;
+   float endX = ray.endPt.x;
+   float endY = ray.endPt.y;
+   float endZ = ray.endPt.z;
+   float yk = startY - yTerminal;
+   float a = endX*endX + endZ*endZ - ratio*ratio*endY*endY;
+   float b = 2*endX*startX + endZ*startZ - ratio*ratio*yk*endY;
+   float c = startX*startX + startZ*startZ - ratio*ratio*yk*yk;
 
    bool first = false;
    bool second = false;
-   double t1;
-   double t2;
+   float t1;
+   float t2;
    // Use the quadratic equation to solve for t
-   double d = b*b - (4*a*c);
+   float d = b*b - (4*a*c);
    
    if (d == 0 || d == 1)
    {
@@ -778,9 +812,9 @@ void intersectionCone(Shape cone, inout Line ray, inout Intersection inter)
    {
       // Check point is within height of cone
 
-      double x = startX + t1*endX;
-      double y = startY + t1*endY;
-      double z = startZ + t1*endZ;
+      float x = startX + t1*endX;
+      float y = startY + t1*endY;
+      float z = startZ + t1*endZ;
       
       if (y >= p.y && y <= p.y + height)
       {
@@ -789,17 +823,17 @@ void intersectionCone(Shape cone, inout Line ray, inout Intersection inter)
          // Normal is center at base to intersection pt then scaled
          vec3 normTmp = vec3(x - p.x, 0, z - p.z);
          normTmp = normalize(normTmp);
-         interSide1.normal = vec3(normTmp.x * height / cone.radius, 
-            cone.radius/height, normTmp.z * height / cone.radius);
+         interSide1.normal = vec3(normTmp.x * height / radius, 
+            radius/height, normTmp.z * height / radius);
       }
    }
    if (second)
    {
       // Check point is within height of cone
 
-      double x = startX + t2*endX;
-      double y = startY + t2*endY;
-      double z = startZ + t2*endZ;
+      float x = startX + t2*endX;
+      float y = startY + t2*endY;
+      float z = startZ + t2*endZ;
 
       if (y >= p.y && y <= p.y + height)
       {
@@ -808,13 +842,13 @@ void intersectionCone(Shape cone, inout Line ray, inout Intersection inter)
          // Normal is center at base to intersection pt then scaled
          vec3 normTmp = vec3(x - p.x, 0, z - p.z);
          normTmp = normalize(normTmp);
-         interSide2.normal = vec3(normTmp.x * height / cone.radius, 
-            cone.radius/height, normTmp.z * height / cone.radius);
+         interSide2.normal = vec3(normTmp.x * height / radius, 
+            radius/height, normTmp.z * height / radius);
       }
    }
 
-   double minDistance = -1;
-   double distanceTmp = 0;
+   float minDistance = -1;
+   float distanceTmp = 0;
    
    // When multiple intersections check distance for closest
    if (interBottom.intersects)
@@ -830,7 +864,7 @@ void intersectionCone(Shape cone, inout Line ray, inout Intersection inter)
 void intersection(Shape shape, inout Line ray, inout Intersection inter)
 {
    if (shape.type == SPHERE)
-      intersectionCircle(shape, ray, inter);
+      intersectionSphere(shape, ray, inter);
    else if (shape.type == CHECKERBOARD)
       intersectionCheckerBoard(shape, ray, inter);
    else if (shape.type == TETRAHEDRON)
@@ -852,8 +886,8 @@ void createShape(inout Shape shape, int index)
    float height = 0;
    Material material;
    int squares = 0;
-   double board_half_size = 0;
-   double square_edge_size = 0;
+   float board_half_size = 0;
+   float square_edge_size = 0;
 
    if (uGeometry[index] == SPHERE)
    {
@@ -925,8 +959,8 @@ void ORD(inout RayBouncer ray)
       Line rayLine = Line(ray.startPt, ray.endPt);
       ray.bounces++;
 
-      double minDistance = -1.0;
-      double distanceTmp;
+      float minDistance = -1.0;
+      float distanceTmp;
       Intersection inter;
       createIntersection(inter);
 
@@ -973,13 +1007,14 @@ void ORD(inout RayBouncer ray)
       // Doesn't really matter if it hits the light it matters if it hits something else
       for (int i = 0; i < NUM_LIGHTS * LIGHT_STRIDE; i += LIGHT_STRIDE)
       {
-         double minDistance = -1.0;
-         double distanceTmp;
+         float minDistance = -1.0;
+         float distanceTmp;
          Intersection shadowIntersection;
          createIntersection(shadowIntersection);
 
          Light light = Light(vec3(uLights[i], uLights[i+1], uLights[i+2]), WHITE);
          
+         convertCoords(light.position);
          shadowRay = Line(pt, light.position);
       
          for(int i = 0; i < NUM_SHAPES * GEOMETRY_STRIDE; i += GEOMETRY_STRIDE)
@@ -1006,7 +1041,7 @@ void ORD(inout RayBouncer ray)
 
          if (!shadowIntersection.intersects || !isZero(shadowIntersection.material.transparency))
          {
-            double att = attenuation(length(shadowRay));
+            float att = attenuation(length(shadowRay));
             lColor = vec3(light.color.x*att, light.color.y*att, light.color.z*att);
          
             vec3 one = material.ambient * lColor;
@@ -1076,14 +1111,39 @@ vec4 ORD(inout RayBouncer ray, int bounces)
    return ray.color;
 }
 /*-----------------------------------------------*/
+mat4 createMatrix(vec3 v)
+{
+   mat4 m;
+   for (int col = 0; col < 4; col++)
+   {
+      for (int row = 0; row < 4; row++)
+      {
+         if (col == row)
+            m[col][row] = 1;
+         else
+            m[col][row] = 0;
+      }
+   }
+   m[3][0] = v.x;
+   m[3][2] = v.y;
+   m[3][3] = v.z;
+
+   return m;
+}
 void main() 
 {
    vec3 eyePos = vec3(uEyePosition[0], uEyePosition[1], uEyePosition[2]);
 
    RayBouncer ray;
    createRayBouncer(ray);
-   ray.startPt = eyePos;
-   //ray.endPt = gPosition;
+
+   //vec3 clipEyePos = eyePos;
+   //convertCoords(clipEyePos);
+   //convertCoords(eyePos);
+   //MVM = createMatrix(clipEyePos);
+
+   ray.startPt = vec3(eyePos.x/g_vol, eyePos.y/g_vol, eyePos.z/g_vol);
+   //ray.startPt = eyePos;
    ray.endPt = vPosition;
 
    /*

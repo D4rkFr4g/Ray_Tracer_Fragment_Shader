@@ -159,16 +159,23 @@ static Cvec3f g_objectColors[1] = {Cvec3f(1, 0, 0)};
    CONE: type, radius, c_x, c_y, c_z, height
    CHECKERBOARD: type, edge_length, c_x, c_y, c_z, squares
  */
-static GLfloat g_eyePosition[3] = { 0, 1000, 3000};
+static GLfloat g_eyePosition[3] = { 0, 100, 350};
+//static GLfloat g_eyePosition[3] = { 0, 100, 200};
 #define NUM_LIGHTS 1
 #define LIGHT_STRIDE 3
+static std::vector<GLfloat> g_lData;
 static GLfloat g_Lights[3] = { 0.0, 5.0, 0.0 };
 #define NUM_SHAPES 1
 #define GEOMETRY_STRIDE 6
 //for your code you get this geometry data from user input
+static std::vector<GLfloat> g_geomData;
 static GLfloat g_geometryData[NUM_SHAPES * GEOMETRY_STRIDE] = 
 	//{ SPHERE, 0.5, 0.1, 0.2, 0.3, 0.0 };
-   { CHECKERBOARD, 0.5, 0, 0, 0, 8 };
+   { CHECKERBOARD, 160, 0, 0, 0, 8 }; //320
+   //{CUBE, 50, 0, 10, 0, 0 };
+   //{ TETRAHEDRON, 50, 0.1, 10, 0.3, 0.0 };
+   //{ CYLINDER, 50, 0, 10, 0, 50 };
+   //{ CONE, 50, 0, 10, 0, 50 };
 //for your code you get this light data from user input
 static GLfloat g_lightData[NUM_LIGHTS * LIGHT_STRIDE] =
    {0.0, 5.0, 0.0};
@@ -1407,15 +1414,6 @@ Point  convertStringCoordinate(string coordString)
 
    return square;
 }
-
-
-
-
-
-
-
-
-
 /*-----------------------------------------------*/
 static void initPlane()
 {
@@ -1472,8 +1470,11 @@ static void sendGeometry(const ShaderState& curSS,
     safe_glUniformMatrix4fv(curSS.h_uInverseModelViewMatrix, inverseglmatrix);
 
 	glUniform1fv(curSS.h_uEyePosition, 3, g_eyePosition);
-	glUniform1fv(curSS.h_uLights, NUM_LIGHTS * LIGHT_STRIDE, g_lightData);
-	glUniform1fv(curSS.h_uGeometry, NUM_SHAPES * GEOMETRY_STRIDE, g_geometryData);
+	
+	//glUniform1fv(curSS.h_uGeometry, NUM_SHAPES * GEOMETRY_STRIDE, g_geomData.data());
+   //glUniform1fv(curSS.h_uLights, NUM_LIGHTS * LIGHT_STRIDE, g_lData.data());
+   glUniform1fv(curSS.h_uLights, NUM_LIGHTS * LIGHT_STRIDE, g_lightData);
+   glUniform1fv(curSS.h_uGeometry, NUM_SHAPES * GEOMETRY_STRIDE, g_geometryData);
 }
 
 // update g_frustFovY from G_FRUST_MIN_FOV, g_windowWidth, and g_windowHeight
@@ -1708,6 +1709,8 @@ void MySdlApplication::loadScene()
    */
 {
    map<string, int>::iterator iter;
+   g_lData.reserve(16);
+   g_geomData.reserve(96);
 
    for (iter = g_boardMap.begin(); iter != g_boardMap.end(); ++iter)
    {
@@ -1717,31 +1720,74 @@ void MySdlApplication::loadScene()
       if (type == LIGHT)
       {
          g_lightPosition = Point(BOARD_POSITION) + Point(0.0, 3.5*SQUARE_EDGE_SIZE, 0.0) + convertStringCoordinate(position);
+         g_lData.push_back(g_lightPosition.x());
+         g_lData.push_back(g_lightPosition.y());
+         g_lData.push_back(g_lightPosition.z());
       }
       else if (type == TETRAHEDRON)
       {
          Tetrahedron *tetrahedron = new Tetrahedron(convertStringCoordinate(position), SQUARE_EDGE_SIZE);
+         
+         Point p = convertStringCoordinate(position);
          g_scene.addRayObject(tetrahedron);
+         g_geomData.push_back(TETRAHEDRON);
+         g_geomData.push_back(SQUARE_EDGE_SIZE);
+         g_geomData.push_back(p.x());
+         g_geomData.push_back(p.y());
+         g_geomData.push_back(p.z());
+         g_geomData.push_back(0);
       }
       else if (type == CUBE)
       {
          Cube *cube = new Cube(convertStringCoordinate(position), SQUARE_EDGE_SIZE);   
          g_scene.addRayObject(cube);
+
+         Point p = convertStringCoordinate(position);
+         g_geomData.push_back(CUBE);
+         g_geomData.push_back(SQUARE_EDGE_SIZE);
+         g_geomData.push_back(p.x());
+         g_geomData.push_back(p.y());
+         g_geomData.push_back(p.z());
+         g_geomData.push_back(0);
       }
       else if (type == SPHERE)
       {
          Sphere *sphere = new Sphere(convertStringCoordinate(position), SQUARE_EDGE_SIZE/2);
          g_scene.addRayObject(sphere);
+
+         Point p = convertStringCoordinate(position);
+         g_geomData.push_back(SPHERE);
+         g_geomData.push_back(SQUARE_EDGE_SIZE/2);
+         g_geomData.push_back(p.x());
+         g_geomData.push_back(p.y());
+         g_geomData.push_back(p.z());
+         g_geomData.push_back(0);
       }
       else if (type == CYLINDER)
       {
          Cylinder *cylinder = new Cylinder(convertStringCoordinate(position), SQUARE_EDGE_SIZE/2, SQUARE_EDGE_SIZE/2);
          g_scene.addRayObject(cylinder);
+         
+         Point p = convertStringCoordinate(position);
+         g_geomData.push_back(CYLINDER);
+         g_geomData.push_back(SQUARE_EDGE_SIZE/2);
+         g_geomData.push_back(p.x());
+         g_geomData.push_back(p.y());
+         g_geomData.push_back(p.z());
+         g_geomData.push_back(SQUARE_EDGE_SIZE/2);
       }
       else if (type == CONE)
       {
          Cone *cone = new Cone(convertStringCoordinate(position), SQUARE_EDGE_SIZE/2, SQUARE_EDGE_SIZE/2);
          g_scene.addRayObject(cone);
+
+         Point p = convertStringCoordinate(position);
+         g_geomData.push_back(CONE);
+         g_geomData.push_back(SQUARE_EDGE_SIZE/2);
+         g_geomData.push_back(p.x());
+         g_geomData.push_back(p.y());
+         g_geomData.push_back(p.z());
+         g_geomData.push_back(SQUARE_EDGE_SIZE/2);
       }
    }
 }
