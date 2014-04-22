@@ -2005,7 +2005,7 @@ bool MySdlApplication::onInit()
 
    initScene2();
    initGLState();
-   //if (!g_sf_ray)
+   if (!g_sf_ray)
    {
       initShaders();
       initGeometry();

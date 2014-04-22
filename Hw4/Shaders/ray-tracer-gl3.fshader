@@ -1151,7 +1151,7 @@ void main()
 	    + ATTENUATION * outgoingRadianceDepth2(eyePos, vPosition);
    */
    
-   fragColor = ORD(ray,1); // outgoingRadianceDepth
+   fragColor = ORD(ray,); // outgoingRadianceDepth
 
    if (debugColor != vec4(0,0,0,1))
       fragColor = debugColor;
