@@ -3,6 +3,7 @@
 #include <string>
 #include <iostream>
 #include <stdexcept>
+#include <sstream>
 
 #include "glsupport.h"
 
@@ -50,11 +51,46 @@ static void printInfoLog(GLuint obj, const string& filename) {
   }
 }
 
+const char* modifyFS(const char* fs, int numLights, int numGeom)
+{
+   /*	PURPOSE:		Find and replace array sizes
+      RECEIVES:	fs - Fragment Shader
+      RETURNS:
+      REMARKS:		
+      */
+
+   string frag(fs);
+
+   string one = frag.substr(0,32);
+   string two = frag.substr(34,48);
+   string three = frag.substr(84);
+
+   stringstream ss;
+   ss << numLights;
+   string str = ss.str();
+   
+   one += "" + str;
+
+   ss << numGeom;
+   str = ss.str();
+   two += "" + str;
+
+   frag = one + two + three;
+
+   // Convert back to const char*
+   char* S = new char[frag.length() + 1];
+   std::strcpy(S,frag.c_str());
+
+   return (const char*) S;
+
+}
+
 void readAndCompileSingleShader(GLuint shaderHandle, const char *fn) {
   vector<char> source;
   readTextFile(fn, source);
 
   const char *ptrs[] = {&source[0]};
+  
   const GLint lens[] = {(GLint)source.size()};
   glShaderSource(shaderHandle, 1, ptrs, lens);   // load the shader sources
 
@@ -68,6 +104,21 @@ void readAndCompileSingleShader(GLuint shaderHandle, const char *fn) {
     throw runtime_error("fails to compile GL shader");
 }
 
+void readAndCompileSingleShader(GLuint shaderHandle, const char*fn, int numLights, int numGeom)
+{
+  vector<char> source;
+  readTextFile(fn, source);
+
+  const char *ptrs[] = {&source[0]};
+
+  const char *filename = "./Shaders/ray-tracer-gl3.fshader";
+  string f1 = filename;
+  string f2 = fn;
+  if (f1.compare(f2) == 0)
+   const char* mfn = modifyFS(*ptrs, numLights, numGeom);
+
+  readAndCompileSingleShader(shaderHandle, fn);
+}
 void linkShader(GLuint programHandle, GLuint vs, GLuint fs) {
   glAttachShader(programHandle, vs);
   glAttachShader(programHandle, fs);
@@ -94,4 +145,15 @@ void readAndCompileShader(GLuint programHandle, const char * vertexShaderFileNam
   readAndCompileSingleShader(fs, fragmentShaderFileName);
 
   linkShader(programHandle, vs, fs);
+}
+
+void readAndCompileShader(GLuint programHandle, const char * vertexShaderFileName, const char * fragmentShaderFileName, int numLights, int numGeom)
+{
+   GlShader vs(GL_VERTEX_SHADER);
+   GlShader fs(GL_FRAGMENT_SHADER);
+
+   readAndCompileSingleShader(vs, vertexShaderFileName);
+   readAndCompileSingleShader(fs, fragmentShaderFileName, numLights, numGeom);
+
+   linkShader(programHandle, vs, fs);
 }

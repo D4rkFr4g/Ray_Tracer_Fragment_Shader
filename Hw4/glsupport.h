@@ -6,6 +6,9 @@
 
 #include <GL/glew.h>
 
+void readAndCompileShader(GLuint programHandle, const char * vertexShaderFileName, const char * fragmentShaderFileName, int numLights, int numGeom);
+void readAndCompileSingleShader(GLuint shaderHandle, const char*fn, int numLights, int numGeom);
+   
 // Check if there has been an error inside OpenGL and if yes, print the error and
 // through a runtime_error exception.
 void checkGlErrors();
@@ -40,7 +43,7 @@ protected:
   GLuint handle_;
 
 public:
-  GlShader(GLenum shaderType) {
+   GlShader(GLenum shaderType) {
     handle_ = glCreateShader(shaderType); // create shader handle
     if (handle_ == 0)
       throw std::runtime_error("glCreateShader fails");

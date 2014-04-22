@@ -32,6 +32,8 @@ static int g_activeShader = 0;
 
 unsigned char g_kbPrevState[SDL_NUM_SCANCODES] = {0};
 map <string, int> g_boardMap;
+static std::vector<GLfloat> g_lData;
+static std::vector<GLfloat> g_geomData;
 
 /*-----------------------------------------------*/
 struct ShaderState 
@@ -59,8 +61,8 @@ struct ShaderState
       REMARKS:		
       */
 
-      readAndCompileShader(program, vsfn, fsfn);
-
+      //readAndCompileShader(program, vsfn, fsfn);
+      readAndCompileShader(program, vsfn, fsfn, g_lData.size(), g_geomData.size());
       const GLuint h = program; // short hand
 
       // Retrieve handles to uniform variables
@@ -163,12 +165,10 @@ static GLfloat g_eyePosition[3] = { 0, 100, 350};
 //static GLfloat g_eyePosition[3] = { 0, 100, 200};
 #define NUM_LIGHTS 1
 #define LIGHT_STRIDE 3
-static std::vector<GLfloat> g_lData;
 static GLfloat g_Lights[3] = { 0.0, 5.0, 0.0 };
 #define NUM_SHAPES 1
 #define GEOMETRY_STRIDE 6
 //for your code you get this geometry data from user input
-static std::vector<GLfloat> g_geomData;
 static GLfloat g_geometryData[NUM_SHAPES * GEOMETRY_STRIDE] = 
 	//{ SPHERE, 0.5, 0.1, 0.2, 0.3, 0.0 };
    { CHECKERBOARD, 160, 0, 0, 0, 8 }; //320
@@ -1471,10 +1471,10 @@ static void sendGeometry(const ShaderState& curSS,
 
 	glUniform1fv(curSS.h_uEyePosition, 3, g_eyePosition);
 	
-	//glUniform1fv(curSS.h_uGeometry, NUM_SHAPES * GEOMETRY_STRIDE, g_geomData.data());
-   //glUniform1fv(curSS.h_uLights, NUM_LIGHTS * LIGHT_STRIDE, g_lData.data());
-   glUniform1fv(curSS.h_uLights, NUM_LIGHTS * LIGHT_STRIDE, g_lightData);
-   glUniform1fv(curSS.h_uGeometry, NUM_SHAPES * GEOMETRY_STRIDE, g_geometryData);
+	glUniform1fv(curSS.h_uGeometry, NUM_SHAPES * GEOMETRY_STRIDE, g_geomData.data());
+   glUniform1fv(curSS.h_uLights, NUM_LIGHTS * LIGHT_STRIDE, g_lData.data());
+   //glUniform1fv(curSS.h_uLights, NUM_LIGHTS * LIGHT_STRIDE, g_lightData);
+   //glUniform1fv(curSS.h_uGeometry, NUM_SHAPES * GEOMETRY_STRIDE, g_geometryData);
 }
 
 // update g_frustFovY from G_FRUST_MIN_FOV, g_windowWidth, and g_windowHeight
@@ -1651,8 +1651,8 @@ void MySdlApplication::initScene2()
       for (int i = 0; i < 3; i++)
          g_eyePosition[i] = float(CAMERA_POSITION[i]);
    }
-   else
-      return; //TODO Remove at the end
+   //else
+   //   return; //TODO Remove at the end
 
    while (!isFinished)
    {
@@ -1670,8 +1670,8 @@ void MySdlApplication::initScene2()
 
          int type = tmp[0] - 'a';
          type--;
-         type = (type < 0 ? 5: type);
-         if (type >= 0 && type < 6)
+         type = (type < 0 ? 6: type);
+         if (type >= 0 && type < 7)
          {
             cout << "Please enter the position: (a1-h8)" << endl;
             cin >> tmp;
@@ -1709,8 +1709,6 @@ void MySdlApplication::loadScene()
    */
 {
    map<string, int>::iterator iter;
-   g_lData.reserve(16);
-   g_geomData.reserve(96);
 
    for (iter = g_boardMap.begin(); iter != g_boardMap.end(); ++iter)
    {
@@ -1790,6 +1788,15 @@ void MySdlApplication::loadScene()
          g_geomData.push_back(SQUARE_EDGE_SIZE/2);
       }
    }
+   //{ CHECKERBOARD, 160, 0, 0, 0, 8 }; //320
+
+      Point b = Point(0,0,0);
+      g_geomData.push_back(CHECKERBOARD);
+      g_geomData.push_back(320/2);
+      g_geomData.push_back(b.x());
+      g_geomData.push_back(b.y());
+      g_geomData.push_back(b.z());
+      g_geomData.push_back(NUM_SQUARES);
 }
 /*-----------------------------------------------*/
 void draw()
@@ -1998,7 +2005,7 @@ bool MySdlApplication::onInit()
 
    initScene2();
    initGLState();
-   if (!g_sf_ray)
+   //if (!g_sf_ray)
    {
       initShaders();
       initGeometry();
@@ -2123,6 +2130,8 @@ int main (int argc, char **argv)
    RETURNS:		int - Whether or not program ran sucessfully
    REMARKS:		
    */
+   g_lData.reserve(16);
+   g_geomData.reserve(96);
 
    MySdlApplication application;
    return application.onExecute();
