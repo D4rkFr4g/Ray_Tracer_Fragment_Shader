@@ -85,6 +85,7 @@ string modifyFS(const char* fn, const char* fs, int numLights, int numGeom)
 
    stringstream ss;
    ss.str(std::string());
+   
    ss << numLights / lightStride;
    string str = ss.str();
    one += "" + str;
@@ -95,8 +96,8 @@ string modifyFS(const char* fn, const char* fs, int numLights, int numGeom)
    two += "" + str;
 
    ss.str(std::string());
-   ss << numLights;
-   str = ss.str();
+   ss << (numLights == 0 ? 1 : numLights); // GLSL doesn't like [0]
+   str = ss.str(); 
    three += "" + str;
 
    ss.str(std::string());

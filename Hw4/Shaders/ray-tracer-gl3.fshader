@@ -1012,7 +1012,7 @@ void ORD(inout RayBouncer ray)
          Intersection shadowIntersection;
          createIntersection(shadowIntersection);
 
-         Light light = Light(vec3(uLights[i], uLights[i+1], uLights[i+2]), WHITE);
+         Light light = Light(vec3(uLights[i], uLights[i+1], uLights[i+2]), i == 3 ? RED:WHITE);
          
          convertCoords(light.position);
          shadowRay = Line(pt, light.position);
