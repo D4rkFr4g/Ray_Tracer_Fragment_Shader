@@ -21,7 +21,7 @@ const int SPHERE = 2;
 const int CYLINDER = 3;
 const int CONE = 4;
 const int CHECKERBOARD = 5;
-const float ATTENUATION_FACTOR = 100000; 
+const float ATTENUATION_FACTOR = 40; //100000; 
 
 const vec3 WHITE = vec3(1.0);
 const vec3 BLACK = vec3(0.0);
@@ -118,7 +118,7 @@ struct Side
 /*-----------------------------------------------*/
 
 Material whiteSquare = Material(.1*WHITE, .5*WHITE, WHITE, BLACK, 1);
-Material blackSquare = Material(BLACK, .1*WHITE, BLACK, BLACK, 1);
+Material blackSquare = Material(BLACK, .01*WHITE, BLACK, BLACK, 1);
 Material sphereMaterial = Material(BLACK, .1*WHITE, WHITE, BLACK, 1);
 Material tetrahedronMaterial = Material(BLACK, BLACK, .1*WHITE, WHITE, 2.0/3.0);
 Material cubeMaterial = Material(.1*RED, .4*RED, RED, BLACK, 1);
@@ -162,7 +162,9 @@ vec3 direction(Line line)
 /*-----------------------------------------------*/
 float attenuation(float distance)
 {
-   return ATTENUATION_FACTOR/(ATTENUATION_FACTOR + distance*distance);
+   float att = ATTENUATION_FACTOR / g_vol;
+   return att/(att+distance*distance);
+   //return ATTENUATION_FACTOR/(ATTENUATION_FACTOR + distance*distance);
 }
 /*-----------------------------------------------*/
 void distanceCompare(inout float minDistance, inout Intersection inter, Intersection interTmp, Line ray) 
@@ -400,20 +402,13 @@ void intersectionCheckerBoard(Shape board, inout Line ray, inout Intersection in
 
    if(inter.intersects)
    {
-      //float edge = 5;
-      //vec3 boardOffset = vec3(uModelViewMatrix * vec4(board.board_half_size,0,board.board_half_size,1));
-      //vec3 p = inter.point - board.pos + boardOffset;
-      
       vec3 tmp = board.pos + vec3(board.board_half_size, 0, board.board_half_size);
-      //convertCoords(tmp);
+      convertCoords(tmp);
       vec3 p = inter.point - tmp;
 
       vec3 sqEdge = vec3(board.square_edge_size, board.square_edge_size, board.square_edge_size);
       convertCoords(sqEdge);
       int squareSum = int(p.x/(sqEdge.x)) + int(p.z/(sqEdge.x));
-      //int squareSum = int(p.x/(1/board.square_edge_size)) + int(p.z/(1/board.square_edge_size));
-      //int squareSum = int(p.x/(board.square_edge_size)) + int(p.z/(board.square_edge_size));
-      //int squareSum = int(p.x/edge) + int(p.z/edge);
 
       if((squareSum & 1) == 0)
          inter.material = whiteSquare;
